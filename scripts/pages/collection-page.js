@@ -834,6 +834,7 @@ const resolveCanonicalFeeItem = (rawKeyOrMonth = '', academicYear = '') => {
     return null;
 };
 window.resolveCanonicalFeeItem = resolveCanonicalFeeItem;
+window.resolveCanonicalFeeItemKey = resolveCanonicalFeeItem;
 
 const getVisiblePayments = () => {
     if(isCurrentAdmin) return allPayments;
@@ -2087,8 +2088,11 @@ const populateFeeItemSelection = () => {
     if(st) {
         document.querySelectorAll('.fee-item-checkbox').forEach(cb => {
             const isDonationItem = cb.dataset.itemKey === STUDENT_DONATION_ITEM_KEY;
+            const currentItemObj = visibleItems.find(i => i.key === cb.dataset.itemKey);
             const pay = allPayments.find((payment) => {
-                if (payment.studentId !== st.id || payment.itemKey !== cb.dataset.itemKey) return false;
+                if (payment.studentId !== st.id) return false;
+                const matchesItem = payment.itemKey === cb.dataset.itemKey || isFeeItemMatch(payment.itemKey, currentItemObj || { key: cb.dataset.itemKey, type: cb.dataset.itemType, name: cb.dataset.itemKey });
+                if (!matchesItem) return false;
                 return (payment.academicYear || '') === (selectedFeeAcademicYear || '');
             });
             const donationCount = isDonationItem

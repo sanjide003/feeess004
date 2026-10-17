@@ -1262,6 +1262,24 @@ const studentPwa = registerPortalForPwa('student', {
             }
             return months.length ? months : [5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4];
         };
+        const isFeeItemMatch = (paymentItemKey = '', targetItem = {}) => {
+            const pKey = String(paymentItemKey || '').trim().toLowerCase();
+            const tKey = String(targetItem?.key || '').trim().toLowerCase();
+            if (!pKey || !tKey) return false;
+            if (pKey === tKey) return true;
+            if ((targetItem?.type || 'month') === 'month') {
+                const tName = String(targetItem.name || '').trim().toLowerCase();
+                const shortMonth = tName.slice(0, 3);
+                if (shortMonth && (pKey === shortMonth || pKey === tName || pKey === `month_${shortMonth}` || pKey === `month-${shortMonth}`)) {
+                    return true;
+                }
+                if (shortMonth && (pKey.startsWith(shortMonth) || (tKey.length >= 3 && pKey.startsWith(tKey.slice(0, 3))))) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         const getStudentBaseMonthlyFee = (st = {}) => {
             if(st.concessionFee !== undefined && st.concessionFee !== null && st.concessionFee !== "") return parseFloat(st.concessionFee);
             const group = studentGroups.find(g => Array.isArray(g.memberIds) && g.memberIds.includes(studentId));
@@ -1280,11 +1298,11 @@ const studentPwa = registerPortalForPwa('student', {
             const baseFee = getStudentBaseMonthlyFee(st);
             const currentYearFeeItems = feeItems.filter((item) => (item.academicYear || st.academicYear || '') === academicYear);
             const yearPayments = allPayments.filter((payment) => {
-                const item = currentYearFeeItems.find((feeItem) => feeItem.key === payment.itemKey);
+                const item = currentYearFeeItems.find((feeItem) => feeItem.key === payment.itemKey || isFeeItemMatch(payment.itemKey, feeItem));
                 const paymentYear = payment.academicYear || item?.academicYear || '';
                 return paymentYear === academicYear;
             });
-            const paymentsByItem = new Map(yearPayments.map((payment) => [payment.itemKey, payment]));
+            const getMatchedPayment = (targetItem) => yearPayments.find(p => p.itemKey === targetItem.key || isFeeItemMatch(p.itemKey, targetItem));
             const visibleItems = currentYearFeeItems.filter((item) => {
                 if(item.isVisible === false) return false;
                 if(item.key === STUDENT_DONATION_ITEM_KEY) return false;
@@ -1292,13 +1310,13 @@ const studentPwa = registerPortalForPwa('student', {
                 return true;
             });
             const dueItems = visibleItems
-                .filter((item) => !paymentsByItem.has(item.key))
+                .filter((item) => !getMatchedPayment(item))
                 .map((item) => {
                     let dueAmount = getFeeItemAmount(item, classLabel, baseFee);
                     const isMonthly = !item.type || item.type === 'month';
                     if (isMonthly) {
                         const hasConcession = st.concessionFee !== undefined && st.concessionFee !== null && st.concessionFee !== "";
-                        const siblingPaid = siblingPayments.some((sp) => sp.itemKey === item.key);
+                        const siblingPaid = siblingPayments.some((sp) => sp.itemKey === item.key || isFeeItemMatch(sp.itemKey, item));
                         if (hasConcession) {
                             dueAmount = parseFloat(st.concessionFee) || defaultFee;
                         } else if (siblingPaid) {
@@ -3959,11 +3977,11 @@ const studentPwa = registerPortalForPwa('student', {
 
             const currentYearFeeItems = feeItems.filter((item) => (item.academicYear || st.academicYear || '') === activeYear);
             const yearPayments = allPayments.filter((payment) => {
-                const item = currentYearFeeItems.find((feeItem) => feeItem.key === payment.itemKey);
+                const item = currentYearFeeItems.find((feeItem) => feeItem.key === payment.itemKey || isFeeItemMatch(payment.itemKey, feeItem));
                 const paymentYear = payment.academicYear || item?.academicYear || '';
                 return paymentYear === activeYear;
             });
-            const paymentsByItem = new Map(yearPayments.map((payment) => [payment.itemKey, payment]));
+            const getMatchedStudentPayment = (targetItem) => yearPayments.find(p => p.itemKey === targetItem.key || isFeeItemMatch(p.itemKey, targetItem));
             const studentDonationPayments = yearPayments.filter((payment) => payment.itemKey === STUDENT_DONATION_ITEM_KEY);
 
             const visibleItems = currentYearFeeItems.filter(i => {
@@ -3985,7 +4003,7 @@ const studentPwa = registerPortalForPwa('student', {
             const paymentHistoryItems = [];
 
             const generateFeeCardHtml = (item) => {
-                const pay = paymentsByItem.get(item.key);
+                const pay = getMatchedStudentPayment(item);
                 const isSpecialOptional = item.key === STUDENT_DONATION_ITEM_KEY;
                 const latestDonationPayment = studentDonationPayments
                     .slice()
@@ -4116,7 +4134,7 @@ const studentPwa = registerPortalForPwa('student', {
                     else if (item.scope === 'class-wise' && item.classValues) amountToPay = item.classValues[classLabel] || 0;
                     else if (item.scope === 'specific') amountToPay = item.amount || 0;
                 } else {
-                    const isSiblingPaidForThisMonth = siblingPayments.some((sp) => sp.itemKey === item.key);
+                    const isSiblingPaidForThisMonth = siblingPayments.some((sp) => sp.itemKey === item.key || isFeeItemMatch(sp.itemKey, item));
                     if (hasConcession) {
                         amountToPay = parseFloat(st.concessionFee);
                         statusHints = 'Concession';

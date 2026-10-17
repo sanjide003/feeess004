@@ -61,6 +61,57 @@ export const checkIsReceiptMandatoryForItem = (itemKey = '', itemType = '') => {
 };
 
 /**
+ * Resolve canonical fee item from configured fee items matching the key or month in target academic year
+ */
+export const resolveCanonicalItem = (rawKey, rawMonth, fallbackName, fallbackType = 'month', targetYear = '') => {
+    const yr = targetYear || window.currentWorkingAcademicYear || window.MasterLedger?.academicYear || '';
+    if (typeof window.resolveCanonicalFeeItem === 'function') {
+        const canonical = window.resolveCanonicalFeeItem(rawKey || rawMonth, yr);
+        if (canonical) {
+            return {
+                key: canonical.key,
+                name: canonical.name || fallbackName || (rawMonth ? `${rawMonth} Tuition Fee` : 'Tuition Fee'),
+                type: canonical.type || fallbackType || 'month'
+            };
+        }
+    }
+    if (typeof window.resolveCanonicalFeeItemKey === 'function') {
+        const canonical = window.resolveCanonicalFeeItemKey(rawKey || rawMonth, yr);
+        if (canonical) {
+            return {
+                key: canonical.key || canonical,
+                name: canonical.name || fallbackName || (rawMonth ? `${rawMonth} Tuition Fee` : 'Tuition Fee'),
+                type: canonical.type || fallbackType || 'month'
+            };
+        }
+    }
+    if (Array.isArray(window.feeItems) && window.feeItems.length > 0) {
+        const raw = String(rawKey || rawMonth || '').trim().toLowerCase();
+        const mPrefix = raw.replace(/^month[-_]/, '').slice(0, 3);
+        const matched = window.feeItems.find(i => {
+            if (yr && i.academicYear && i.academicYear !== yr) return false;
+            const cKey = String(i.key || '').trim().toLowerCase();
+            const cName = String(i.name || '').trim().toLowerCase();
+            return cKey === raw || (mPrefix.length === 3 && (cKey.includes(mPrefix) || cName.includes(mPrefix)));
+        });
+        if (matched) {
+            return {
+                key: matched.key,
+                name: matched.name || fallbackName,
+                type: matched.type || fallbackType || 'month'
+            };
+        }
+    }
+    const k = String(rawKey || rawMonth || 'fee').trim().toLowerCase();
+    return {
+        key: k,
+        name: fallbackName || (rawMonth ? `${rawMonth} Tuition Fee` : 'Tuition Fee'),
+        type: fallbackType || 'month'
+    };
+};
+window.resolveCanonicalItem = resolveCanonicalItem;
+
+/**
  * Open Shared Fee Entry/Edit Modal
  * @param {Object} options
  * @param {string} options.mode - 'add' or 'edit'
@@ -105,12 +156,19 @@ export const openFeeEntryEditModal = (options = {}) => {
     const isGroup = Boolean(unit?.isGroup) && !isBulk;
 
     // Labels & Keys
-    const effectiveItemKey = (existingPayment?.itemKey || options.itemKey || options.month || 'fee').toLowerCase();
+    const effectiveYear = options.academicYear || existingPayment?.academicYear || window.currentWorkingAcademicYear || window.MasterLedger?.academicYear || '2025-2026';
+    const canonicalItem = resolveCanonicalItem(
+        existingPayment?.itemKey || options.itemKey,
+        options.month,
+        existingPayment?.itemName || options.itemName,
+        options.itemType,
+        effectiveYear
+    );
+    const effectiveItemKey = canonicalItem.key;
     const effectiveItemName = isBulk
         ? `${options.bulkItems.length} Fee Items`
-        : (existingPayment?.itemName || options.itemName || (options.month ? `${options.month} Tuition Fee` : 'Tuition Fee'));
+        : (canonicalItem.name || existingPayment?.itemName || options.itemName || (options.month ? `${options.month} Tuition Fee` : 'Tuition Fee'));
     const effectiveMonth = options.month || existingPayment?.itemKey || 'Tuition Fee';
-    const effectiveYear = options.academicYear || existingPayment?.academicYear || window.currentWorkingAcademicYear || window.MasterLedger?.academicYear || '2025-2026';
 
     // Populate Hidden Inputs
     const unitIdEl = document.getElementById('ledger-pay-unit-id');
@@ -564,18 +622,6 @@ export const submitFeeEntryPayment = async () => {
             window.AppSession?.getStaffAccess?.()?.staffName ||
             collectorKey;
 
-        const resolveCanonicalItem = (rawKey, rawMonth, fallbackName, fallbackType = 'month') => {
-            if (typeof window.resolveCanonicalFeeItemKey === 'function') {
-                return window.resolveCanonicalFeeItemKey(rawKey, rawMonth);
-            }
-            const k = String(rawKey || rawMonth || 'fee').trim().toLowerCase();
-            return {
-                key: k,
-                name: fallbackName || (rawMonth ? `${rawMonth} Tuition Fee` : 'Tuition Fee'),
-                type: fallbackType || 'month'
-            };
-        };
-
         const isBulkAdd = activeModalOptions?.mode === 'bulk-add' && Array.isArray(activeModalOptions?.bulkItems);
         const isBulkEdit = activeModalOptions?.mode === 'bulk-edit' && Array.isArray(activeModalOptions?.bulkItems);
         const isBulk = isBulkAdd || isBulkEdit;
@@ -620,7 +666,7 @@ export const submitFeeEntryPayment = async () => {
                     savedPaymentRecords.push({ record: rec, cell: bItem.targetCellElement });
                 } else if (isBulkAdd) {
                     const payRef = doc(collection(db, `${BASE_PATH}/payments`));
-                    const canonicalItem = resolveCanonicalItem(bItem.itemKey, bItem.month, bItem.itemName, bItem.itemType || 'month');
+                    const canonicalItem = resolveCanonicalItem(bItem.itemKey, bItem.month, bItem.itemName, bItem.itemType || 'month', itemAcademicYear);
                     const finalAmt = itemAmt > 0 ? itemAmt : Number(bItem.amount || 200);
                     const paymentPayload = {
                         studentId: bItem.studentId,
@@ -658,6 +704,7 @@ export const submitFeeEntryPayment = async () => {
             savedPaymentRecord = savedPaymentRecords[0]?.record || null;
         } else if (isEdit && existingPaymentId) {
             // EDIT EXISTING PAYMENT
+            const canonicalEditItem = resolveCanonicalItem(itemKey, month, itemName, 'month', academicYear);
             const payRef = doc(db, `${BASE_PATH}/payments`, existingPaymentId);
             const updatePayload = {
                 studentId: studentId,
@@ -667,6 +714,8 @@ export const submitFeeEntryPayment = async () => {
                 paymentDate: paymentDate,
                 paymentMode: mode,
                 description: description,
+                itemKey: canonicalEditItem.key,
+                itemName: canonicalEditItem.name,
                 updatedAt: new Date().toISOString()
             };
             batch.set(payRef, updatePayload, { merge: true });
@@ -684,8 +733,8 @@ export const submitFeeEntryPayment = async () => {
                 studentClass: studentClass,
                 classLabel: studentClass,
                 studentAdm: studentAdm,
-                itemKey: itemKey,
-                itemName: itemName,
+                itemKey: canonicalEditItem.key,
+                itemName: canonicalEditItem.name,
                 academicYear: academicYear,
                 collectedBy: activeModalOptions?.payment?.collectedBy || collectorKey,
                 collectedByName: activeModalOptions?.payment?.collectedByName || collectorDisplayName,
@@ -708,7 +757,7 @@ export const submitFeeEntryPayment = async () => {
                 return;
             }
 
-            const canonicalItem = resolveCanonicalItem(itemKey, month, itemName, 'month');
+            const canonicalItem = resolveCanonicalItem(itemKey, month, itemName, 'month', academicYear);
             const newTxnId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
 
             if (isGroup && checkedStudentCbs.length > 1) {
