@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en" data-session-guard="collection">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' https: data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com wss://*.firebaseio.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'self' blob: data: https://*.firebaseapp.com https://unpkg.com;">
+    <meta name="referrer" content="no-referrer">
+    <title>Fee Collection - Fee Tracker</title>
+    
+    <script src="scripts/shared/session-guard.js"></script>
+    <script src="scripts/shared/page-guards.js"></script>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="apple-touch-icon" href="assets/images/logo.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- Excel & CSV Parsing Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Global CSS Link -->
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="antialiased text-gray-800 collection-shell">
+    <div id="loading-screen">
+        <div class="loader-wrapper">
+            <div class="logo-container">
+                <div class="circle-loader"></div>
+                <img id="splash-logo-img" src="assets/images/logo.png" alt="Logo">
+            </div>
+            <div class="loading-text">Initializing...</div>
+        </div>
+    </div>
+    <script>
+        (function() {
+            window.hideCollectionLoader = function() {
+                var el = document.getElementById('loading-screen');
+                if (el) {
+                    el.style.pointerEvents = 'none';
+                    el.style.opacity = '0';
+                    setTimeout(function() {
+                        if (el && el.parentNode) {
+                            el.parentNode.removeChild(el);
+                        } else if (el) {
+                            el.style.display = 'none';
+                        }
+                    }, 200);
+                }
+            };
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                window.hideCollectionLoader();
+            } else {
+                document.addEventListener('DOMContentLoaded', window.hideCollectionLoader);
+                window.addEventListener('load', window.hideCollectionLoader);
+            }
+            // Strict fail-safe timeout so loader is never permanently stuck
+            setTimeout(window.hideCollectionLoader, 400);
+        })();
+    </script>
+    
+    <!-- Header -->
+    <header>
+        <div class="nav-container">
+            <div class="header-logo-box">
+                <img id="header-logo" src="assets/images/logo.png" alt="Logo" onerror="this.style.display='none'">
+            </div>
+            
+            <div class="header-center-box">
+                <h1 id="header-title">Fee Collection</h1>
+                <p id="header-subtitle" class="hidden"><span id="header-regno"></span> <span id="header-sep" class="mx-1 hidden">|</span> <span id="header-place"></span></p>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <!-- Hamburger Icon -->
+                <button class="mobile-toggle" id="mobile-menu-btn" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+                    <div class="menu-icon-wrapper">
+                        <i class="fas fa-bars icon-bars"></i>
+                        <i class="fas fa-times icon-close"></i>
+                    </div>
+                </button>
+            </div>
+            
+            <!-- Nav Menu -->
+            <ul class="nav-menu" aria-label="Primary navigation">
+                <div class="bg-blue-50 border border-blue-100 p-3 rounded-lg shadow-sm mb-2 text-center">
+                    <div class="text-[10px] text-blue-500 font-bold uppercase">Logged in as</div>
+                    <div id="staff-name-display" class="text-blue-800 font-bold truncate text-sm">Loading...</div>
+                </div>
+                
+                <!-- 1. Dashboard -->
+                <li data-menu-group="dashboard">
+                    <a href="#dashboard" class="nav-link tab-link active" data-target="dashboard-page" data-main-group="dashboard"><i class="fas fa-tachometer-alt text-lg w-6"></i> Dashboard</a>
+                </li>
+
+                <!-- 2. Fee Collection Group -->
+                <li class="nav-group-static" data-menu-group="collection">
+                    <div class="nav-group-heading">Fee Collection</div>
+                    <ul class="nav-sub-list-static" data-group-list="collection">
+                        <li><a href="#home" id="nav-fee-entry" class="nav-link nav-sub-link tab-link" data-target="home-page" data-main-group="collection"><i class="fas fa-edit text-sm w-5"></i> Fee Entry</a></li>
+                        <li><a href="#bulk-upload" class="nav-link nav-sub-link tab-link" data-target="bulk-upload-page" data-main-group="collection"><i class="fas fa-file-excel text-sm w-5"></i> Bulk Upload</a></li>
+                        <li><a href="#donation" class="nav-link nav-sub-link tab-link" data-target="donation-page" data-main-group="collection"><i class="fas fa-hand-holding-heart text-sm w-5"></i> Donation Entry</a></li>
+                    </ul>
+                </li>
+
+                <!-- 3. Ledgers & Status Group -->
+                <li class="nav-group-static" data-menu-group="ledgers">
+                    <div class="nav-group-heading">Ledgers &amp; Status</div>
+                    <ul class="nav-sub-list-static" data-group-list="ledgers">
+                        <li><a href="#fee" class="nav-link nav-sub-link tab-link" data-target="fee-page" data-main-group="ledgers"><i class="fas fa-list text-sm w-5"></i> Fee Status</a></li>
+                        <li><a href="#master-ledger" id="nav-master-ledger" class="nav-link nav-sub-link tab-link" data-target="master-ledger-page" data-main-group="ledgers"><i class="fas fa-table-cells text-sm w-5"></i> Master Fee Ledger</a></li>
+                        <li><a href="#conc-group" class="nav-link nav-sub-link tab-link" data-target="conc-group-page" data-main-group="ledgers"><i class="fas fa-users-viewfinder text-sm w-5"></i> Concession &amp; Group</a></li>
+                    </ul>
+                </li>
+
+                <!-- 4. Reports & History Group -->
+                <li class="nav-group-static" data-menu-group="reports">
+                    <div class="nav-group-heading">Reports &amp; History</div>
+                    <ul class="nav-sub-list-static" data-group-list="reports">
+                        <li><a href="#history" id="nav-history" class="nav-link nav-sub-link tab-link" data-target="history-page" data-main-group="reports"><i class="fas fa-history text-sm w-5"></i> History</a></li>
+                        <li><a href="#monthly" id="nav-monthly" class="nav-link nav-sub-link tab-link" data-target="monthly-collected-page" data-main-group="reports"><i class="fas fa-chart-bar text-sm w-5"></i> Monthly Report</a></li>
+                        <li id="collector-wise-monthly-tab" class="hidden"><a href="#collector-wise" class="nav-link nav-sub-link tab-link" data-target="collector-wise-monthly-page" data-main-group="reports"><i class="fas fa-users text-sm w-5"></i> Collector-wise Monthly Total</a></li>
+                    </ul>
+                </li>
+
+                <!-- 5. Students & Class Group -->
+                <li class="nav-group-static" data-menu-group="students">
+                    <div class="nav-group-heading">Students &amp; Class</div>
+                    <ul class="nav-sub-list-static" data-group-list="students">
+                        <li><a href="#students" class="nav-link nav-sub-link tab-link" data-target="students-page" data-main-group="students"><i class="fas fa-user-graduate text-sm w-5"></i> Students</a></li>
+                    </ul>
+                </li>
+                
+                <div class="border-t border-gray-100 my-1"></div>
+                <li><a href="#" id="open-tab-settings-btn" class="nav-link"><i class="fas fa-sliders-h text-lg w-6"></i> Settings</a></li>
+                <li><a href="#" id="open-profile-btn" class="nav-link"><i class="fas fa-user-circle text-lg w-6"></i> My Profile</a></li>
+                <li><a href="official.html" id="back-to-official-btn" class="nav-link font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"><i class="fas fa-th-large text-lg w-6 text-blue-600"></i> Back to Official Portal</a></li>
+                <li><button id="logout-btn" class="login-btn-nav btn-danger"><i class="fas fa-sign-out-alt"></i> Logout</button></li>
+            </ul>
+        </div>
+    </header>
+
+    <main id="app">
+        <div id="page-content">
+
+            <!-- Dashboard -->
+            <section id="dashboard-page" class="page-content">
+                <h2 class="text-xl font-bold mb-4 text-gray-800 border-b pb-2 px-2">Overview</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden flex justify-between items-center">
+                        <div class="relative z-10">
+                            <h2 class="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1">Today's Collection</h2>
+                            <div class="text-3xl font-bold font-mono">₹<span id="dash-today-amt">0</span></div>
+                        </div>
+                        <i class="fas fa-calendar-day text-5xl opacity-20 transform translate-x-2 absolute right-4"></i>
+                    </div>
+                    
+                    <div class="bg-gradient-to-r from-green-600 to-green-500 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden flex justify-between items-center">
+                        <div class="relative z-10">
+                            <h2 class="text-xs font-bold text-green-100 uppercase tracking-wider mb-1">This Month</h2>
+                            <div class="text-3xl font-bold font-mono">₹<span id="dash-month-amt">0</span></div>
+                        </div>
+                        <i class="fas fa-chart-line text-5xl opacity-20 transform translate-x-2 absolute right-4"></i>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl"><i class="fas fa-users"></i></div>
+                        <div>
+                            <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Students</h2>
+                            <div class="text-2xl font-bold text-gray-800" id="dash-students-count">0</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-2xl"><i class="fas fa-file-invoice"></i></div>
+                        <div>
+                            <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Receipts Today</h2>
+                            <div class="text-2xl font-bold text-gray-800" id="dash-today-receipts">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-2xl shadow-sm mt-4 overflow-hidden">
+                    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-sm font-extrabold text-gray-800">Class-wise Student Summary</h2>
+                            <p class="text-[11px] text-gray-500 font-semibold">Boys, girls and total students by class</p>
+                        </div>
+                        <i class="fas fa-table text-indigo-500"></i>
+                    </div>
+                    <div id="dash-students-class-table" class="overflow-x-auto"></div>
+                </div>
+
+                <div class="text-center mt-6">
+                    <button id="new-fee-entry-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition inline-flex items-center gap-2">
+                        <i class="fas fa-plus-circle"></i> New Fee Entry
+                    </button>
+                </div>
+            </section>
+
+            <section id="conc-group-page" class="page-content hidden w-full">
+                <div class="card p-4 sm:p-5 shadow-sm bg-white rounded-2xl border border-slate-200">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4 border-b border-slate-200 pb-3.5">
+                        <div>
+                            <h2 class="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                                <span class="w-8 h-8 rounded-xl bg-blue-600 text-white inline-flex items-center justify-center text-sm shadow-xs"><i class="fas fa-users-viewfinder"></i></span>
+                                <span>Concession & Group Overview</span>
+                            </h2>
+                            <p class="text-xs text-slate-500 font-medium mt-0.5">Complete tabular directory of fee concessions and family/sibling billing groups</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                            <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200" id="conc-group-view-tabs">
+                                <button type="button" data-conc-view="concession" class="conc-view-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-xs transition">Concessions</button>
+                                <button type="button" data-conc-view="group" class="conc-view-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition">Groups</button>
+                            </div>
+                            <select id="conc-group-class-select" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 cursor-pointer">
+                                <option value="">All Classes</option>
+                            </select>
+                            <select id="conc-group-year-select" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-blue-500 cursor-pointer"></select>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 relative">
+                        <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="conc-group-search-input" class="w-full py-2.5 pl-9 pr-9 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium bg-slate-50 focus:bg-white focus:border-blue-500 outline-none transition" placeholder="Search by student name, admission no, guardian, class, or fee amount...">
+                        <button type="button" id="conc-group-search-clear" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 text-xs items-center justify-center transition" title="Clear search">
+                            <i class="fas fa-times text-[10px]"></i>
+                        </button>
+                    </div>
+
+                    <div id="conc-group-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4"></div>
+                    <div id="conc-group-content" class="space-y-5"></div>
+                </div>
+            </section>
+
+            <!-- 2. Fee Entry Page -->
+            <section id="home-page" class="page-content hidden">
+                <div id="fee-entry-card" class="card p-5 mb-6 shadow-sm transition-all duration-300 max-w-4xl mx-auto">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-5 border-b pb-2 gap-3"><h2 id="fee-entry-title" class="text-xl font-bold text-gray-800">Fee Entry</h2>
+                        <div class="flex items-center gap-2 ml-auto whitespace-nowrap">
+                            <label for="multi-entry-toggle" class="text-sm font-semibold text-gray-700">Multiple Entry</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input id="multi-entry-toggle" type="checkbox" class="sr-only peer">
+                                <span class="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:bg-green-500 transition"></span>
+                                <span class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="multi-entry-panel" class="hidden mb-4 p-3 rounded-xl border border-blue-200 bg-blue-50">
+                        <div class="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                            <div id="multi-entry-count" class="text-sm font-bold text-blue-800">0 students queued for same receipt</div>
+                            <div class="flex gap-2">
+                                <button id="add-multi-student-btn" type="button" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold">+ Add Student</button>
+                                <button id="clear-multi-students-btn" type="button" class="px-3 py-2 rounded-lg bg-slate-200 text-slate-700 text-sm font-bold">Clear</button>
+                            </div>
+                        </div>
+                        <div id="multi-entry-list" class="mt-3 space-y-2"></div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-semibold mb-1 text-gray-700">Class</label><select id="entry-class" class="w-full p-2.5 rounded-lg border border-gray-300 bg-white"><option value="">All Classes (Whole School)</option></select></div>
+                            <div><label class="block text-sm font-semibold mb-1 text-gray-700">Gender</label><select id="entry-gender" class="w-full p-2.5 rounded-lg border border-gray-300 bg-white"><option value="">All Genders</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1 text-gray-700">Student</label>
+                            <div class="relative" id="student-combobox-container">
+                                <input type="text" id="entry-student-input" class="w-full p-2.5 pr-10 rounded-lg" placeholder="Type name or Adm No..." autocomplete="off">
+                                <button id="entry-student-clear-btn" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 hidden" title="Clear student input"><i class="fas fa-times text-xs"></i></button>
+                                <div id="student-suggestions" class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl hidden max-h-60 overflow-y-auto"></div>
+                            </div>
+                            <div id="grouped-students-panel" class="hidden mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold mb-1 text-gray-700 flex justify-between">
+                                    <span>Receipt No. <span id="receipt-req-star" class="text-red-500 font-bold hidden">*</span></span>
+                                    <span class="text-[10px] text-gray-400 font-normal">(Auto)</span>
+                                </label>
+                                <input type="number" id="entry-receipt" class="w-full p-2.5 font-mono text-lg font-bold text-blue-700 rounded-lg" placeholder="Number">
+                            </div>
+                            <div><label class="block text-sm font-semibold mb-1 text-gray-700">Date</label><input type="date" id="entry-date" class="w-full p-2.5 rounded-lg"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-5">
+                        <label class="block text-sm font-semibold mb-2 text-gray-700">Fee Items</label>
+                        <div id="fee-year-switcher" class="hidden mb-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <button id="fee-year-prev-btn" class="w-8 h-8 rounded-md bg-white border border-blue-200 text-blue-700 font-bold hover:bg-blue-100" type="button">&lt;</button>
+                                    <span id="fee-year-prev-label" class="text-[11px] font-semibold text-blue-700 whitespace-nowrap">--</span>
+                                </div>
+                                <div id="fee-year-label" class="text-base sm:text-lg font-extrabold text-emerald-700">--</div>
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span id="fee-year-next-label" class="text-[11px] font-semibold text-blue-700 whitespace-nowrap">--</span>
+                                    <button id="fee-year-next-btn" class="w-8 h-8 rounded-md bg-white border border-blue-200 text-blue-700 font-bold hover:bg-blue-100" type="button">&gt;</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="fee-due-notice" class="hidden mb-3 text-xs font-semibold rounded-lg border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2"></div>
+                        <div id="fee-item-selection-container" class="grid grid-cols-3 gap-2 mt-2">
+                            <div class="col-span-3 text-center text-xs font-semibold text-gray-400 py-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">Search and select a student first</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-5"><label class="block text-sm font-semibold mb-1 text-gray-700">Description (Optional)</label><textarea id="entry-description" rows="2" class="w-full p-2.5 rounded-lg"></textarea></div>
+                    <div class="mt-6 pt-5 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div class="w-full sm:w-auto flex flex-wrap items-center gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">Total Amount (₹)</label>
+                                <input type="number" id="total-amount" class="p-2.5 w-full sm:w-32 font-mono text-xl font-bold text-green-700 bg-green-50 border border-green-300 rounded-lg text-center focus:ring-2 focus:ring-green-400 focus:outline-none" value="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">Payment Mode</label>
+                                <select id="entry-payment-mode" class="p-2.5 w-full sm:w-48 font-semibold text-slate-800 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-sm">
+                                    <option value="Cash" selected>Cash</option>
+                                    <option value="UPI / GPay / PhonePe">UPI / GPay / PhonePe</option>
+                                    <option value="Bank Transfer">Bank Transfer</option>
+                                    <option value="Cheque">Cheque</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="action-buttons-container" class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                            <button id="cancel-edit-btn" class="bg-gray-200 text-gray-800 font-bold py-2.5 px-6 rounded-lg shadow-sm hover:bg-gray-300 transition hidden flex-grow sm:flex-grow-0">Cancel</button>
+                            <button id="update-fee-btn" class="bg-amber-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-amber-600 transition hidden flex-grow sm:flex-grow-0">Update</button>
+                            <button id="save-fee-btn" class="btn-primary font-bold py-2.5 px-8 rounded-lg shadow-md text-lg w-full sm:w-auto">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2.1 Bulk Upload Page -->
+            <section id="bulk-upload-page" class="page-content hidden">
+                <div class="card p-5 mb-6 shadow-sm border-blue-200 bg-blue-50/30 max-w-4xl mx-auto">
+                    <div class="flex justify-between items-center mb-4 border-b border-blue-200 pb-2">
+                        <h2 class="text-xl font-bold text-blue-900"><i class="fas fa-download text-blue-600 mr-2"></i>1. Download Template</h2>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">Select an academic year and class to download a pre-filled Excel (.xlsx) template for those students. The first row will be a sample entry.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-1 text-gray-700">Academic Year <span class="mandatory-star">*</span></label>
+                            <select id="bulk-academic-year" class="w-full p-2.5 border rounded-lg bg-white"></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1 text-gray-700">Target Class <span class="mandatory-star">*</span></label>
+                            <select id="bulk-class" class="w-full p-2.5 border rounded-lg bg-white"></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1 text-gray-700">Default Fee Amount (₹) <span class="mandatory-star">*</span></label>
+                            <input type="number" id="bulk-default-fee" class="w-full p-2.5 border rounded-lg bg-white" placeholder="e.g. 200">
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <button id="bulk-download-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-md transition inline-flex items-center gap-2">
+                            <i class="fas fa-file-excel"></i> Download Excel Template
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card p-5 shadow-sm border-green-200 bg-green-50/20 max-w-4xl mx-auto">
+                    <div class="flex justify-between items-center mb-4 border-b border-green-200 pb-2">
+                        <h2 class="text-xl font-bold text-green-900"><i class="fas fa-upload text-green-600 mr-2"></i>2. Upload Data</h2>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">Fill the downloaded template and upload it here. Supported formats: <b>.xlsx, .xls, .csv</b>.</p>
+                    
+                    <div class="upload-area" id="bulk-drop-zone">
+                        <input type="file" id="bulk-file-input" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-green-500 mb-3"></i>
+                        <p class="font-semibold text-gray-700">Click to select or drag and drop your Excel/CSV here</p>
+                    </div>
+
+                    <div id="bulk-preview-area" class="mt-4 hidden p-4 bg-white border rounded-lg shadow-sm">
+                        <div class="flex justify-between items-center mb-3 border-b pb-2">
+                            <span class="font-bold text-gray-800" id="bulk-file-name">filename.xlsx</span>
+                            <span class="text-sm font-bold bg-green-100 text-green-800 px-3 py-1 rounded-full" id="bulk-record-count">Found 0 records</span>
+                        </div>
+                        
+                        <!-- Progress Area -->
+                        <div id="bulk-progress-container" class="hidden">
+                            <div class="flex justify-between text-xs font-bold text-gray-600 mb-1">
+                                <span id="bulk-progress-text">Processing...</span>
+                                <span id="bulk-progress-pct">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2 overflow-hidden">
+                                <div id="bulk-progress-bar" class="bg-green-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 text-right">
+                            <button id="bulk-cancel-btn" class="px-5 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-lg mr-2 hover:bg-gray-300 transition">Cancel</button>
+                            <button id="bulk-start-upload-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-md transition inline-flex items-center gap-2">
+                                <i class="fas fa-cogs"></i> Start Processing
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Fee Status Page (Full Width Desktop Spreadsheet) -->
+            <section id="fee-page" class="page-content hidden w-full">
+                <div class="card p-3 sm:p-4 mb-3 sm:mb-4 shadow-sm bg-white rounded-2xl border border-slate-200">
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                            <div><label class="block text-xs font-bold mb-1 text-slate-700">Class Filter</label><select id="filter-class" class="w-full p-2 rounded-xl text-xs font-bold border border-slate-200 bg-white"><option value="all">All Classes</option></select></div>
+                            <div><label class="block text-xs font-bold mb-1 text-slate-700">Gender Filter</label><select id="filter-gender" class="w-full p-2 rounded-xl text-xs font-bold border border-slate-200 bg-white"><option value="all">All Genders</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                            <div>
+                                <label class="block text-xs font-bold mb-1 text-slate-700">Rows Limit</label>
+                                <select id="fee-status-row-limit" class="w-full p-2 rounded-xl text-xs font-bold border border-slate-200 bg-white cursor-pointer">
+                                    <option value="25" selected>Rows: 25</option>
+                                    <option value="50">Rows: 50</option>
+                                    <option value="75">Rows: 75</option>
+                                    <option value="100">Rows: 100</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+                            <span class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
+                                <i class="fas fa-hand-pointer text-xs"></i> Tick boxes for multi-entry or click cell
+                            </span>
+                            <!-- Dynamic Bulk Selection Action Buttons for Fee Status -->
+                            <div id="fee-status-bulk-actions" class="hidden items-center gap-1.5">
+                                <button type="button" id="fee-status-clear-sel-btn" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition shadow-xs">
+                                    Clear
+                                </button>
+                                <button type="button" id="fee-status-bulk-collect-btn" class="hidden px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition items-center gap-1.5">
+                                    <i class="fas fa-check-double"></i> <span id="fee-status-bulk-collect-label">Collect (0)</span>
+                                </button>
+                                <button type="button" id="fee-status-bulk-edit-btn" class="hidden px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm transition items-center gap-1.5">
+                                    <i class="fas fa-pen-to-square"></i> <span id="fee-status-bulk-edit-label">Edit (0)</span>
+                                </button>
+                            </div>
+                            <button id="fee-download-pdf-btn" class="py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-sm flex items-center gap-2 text-xs transition"><i class="fas fa-file-pdf"></i> Download PDF</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card p-0 shadow-sm overflow-hidden bg-white rounded-2xl border border-slate-200">
+                    <div class="flex justify-between items-center p-3 sm:p-4 border-b border-slate-200 bg-slate-50">
+                         <h2 id="fee-status-title-header" class="text-sm font-extrabold text-slate-800">Fee Status</h2>
+                         <div class="text-[11px] text-slate-500 font-semibold hidden sm:block">
+                             <span class="inline-flex items-center gap-1 text-emerald-700 font-bold mr-3"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Paid (Click for Slip / Tick to Edit)</span>
+                             <span class="inline-flex items-center gap-1 text-rose-600 font-bold"><span class="w-2 h-2 rounded-full bg-rose-400"></span> Unpaid (Click or Tick to Pay)</span>
+                         </div>
+                    </div>
+                    <div id="fee-table-container" class="overflow-x-auto p-2 sm:p-4 custom-scroll max-h-[75vh]"></div>
+                </div>
+            </section>
+
+            <!-- Master Fee Ledger Page (Full Width Spreadsheet) -->
+            <section id="master-ledger-page" class="page-content hidden w-full">
+                <!-- Toolbar and Filter Bar Matching Reference Screenshot -->
+                <div class="card p-3 sm:p-4 mb-3 sm:mb-4 shadow-sm bg-white rounded-2xl border border-slate-200">
+                    <div class="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+                        <!-- Search Bar -->
+                        <div class="relative flex-1 min-w-[220px]">
+                            <input type="text" id="ledger-search-input" placeholder="Search..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 focus:bg-white focus:border-blue-500 outline-none transition">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        </div>
+
+                        <!-- Filters Strip -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- Rows Limit -->
+                            <select id="ledger-row-limit" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 outline-none cursor-pointer">
+                                <option value="25" selected>Rows: 25</option>
+                                <option value="50">Rows: 50</option>
+                                <option value="75">Rows: 75</option>
+                                <option value="100">Rows: 100</option>
+                            </select>
+
+                            <!-- Filter: All Classes -->
+                            <select id="ledger-class-filter" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 outline-none cursor-pointer">
+                                <option value="">Filter: All Classes</option>
+                            </select>
+
+                            <!-- Class Order Dynamic -->
+                            <select id="ledger-class-order" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 outline-none cursor-pointer">
+                                <option value="DESC">Class Order: +2 to 1</option>
+                                <option value="ASC">Class Order: 1 to +2</option>
+                            </select>
+
+                            <!-- Student Sort -->
+                            <select id="ledger-student-sort" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 outline-none cursor-pointer">
+                                <option value="DEFAULT">Student Sort: Default</option>
+                                <option value="ADM">Admission No</option>
+                                <option value="A-Z">Name (A - Z)</option>
+                                <option value="Z-A">Name (Z - A)</option>
+                            </select>
+
+                            <!-- Gender Filter -->
+                            <select id="ledger-gender-mode" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 outline-none cursor-pointer">
+                                <option value="MIXED">Gender: Mixed</option>
+                                <option value="CLASS_BOYS_FIRST">Class-wise (Boys then Girls)</option>
+                                <option value="GLOBAL_BOYS_FIRST">Global (All Boys then All Girls)</option>
+                            </select>
+
+                            <!-- Status Filter -->
+                            <select id="ledger-status-filter" class="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 outline-none cursor-pointer">
+                                <option value="ALL">Status: All</option>
+                                <option value="CONCESSION">Concession Only</option>
+                                <option value="GROUP">Group Only</option>
+                                <option value="PENDING">Pending Fees</option>
+                            </select>
+
+                            <!-- Clear Button -->
+                            <button type="button" id="ledger-clear-filters-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition shadow-xs">
+                                Clear
+                            </button>
+
+                            <!-- Dynamic Bulk Selection Action Buttons next to Clear -->
+                            <div id="ledger-bulk-actions" class="hidden items-center gap-1.5">
+                                <button type="button" id="ledger-bulk-collect-btn" class="hidden px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition items-center gap-1.5">
+                                    <i class="fas fa-check-double"></i> <span id="ledger-bulk-collect-label">Collect (0)</span>
+                                </button>
+                                <button type="button" id="ledger-bulk-edit-btn" class="hidden px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm transition items-center gap-1.5">
+                                    <i class="fas fa-pen-to-square"></i> <span id="ledger-bulk-edit-label">Edit (0)</span>
+                                </button>
+                            </div>
+
+                            <!-- Preview PDF Action -->
+                            <button type="button" id="master-ledger-pdf-btn" class="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                                <i class="fas fa-file-pdf"></i> Preview PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Master Fee Ledger Table Canvas (Edge-to-Edge) -->
+                <div id="master-ledger-table-container" class="w-full overflow-x-auto rounded-2xl shadow-sm border border-slate-200 bg-white custom-scroll max-h-[78vh]">
+                    <div class="text-center py-16 text-slate-400">
+                        <i class="fas fa-spinner fa-spin text-3xl mb-2 text-blue-500"></i>
+                        <p class="font-bold text-xs">Loading Master Fee Ledger...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. History Page -->
+            <section id="history-page" class="page-content hidden">
+                <div class="card p-0 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-3">
+                        <div class="flex items-center gap-3 w-full sm:w-auto">
+                            <h2 class="text-lg font-bold text-gray-800">Payment History</h2>
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded" id="history-count-badge">Loading...</span>
+                        </div>
+                        
+                        <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            <div class="relative w-full sm:w-48">
+                                <input type="text" id="history-search-input" placeholder="Search history..." class="w-full p-2 pl-8 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:border-blue-500">
+                                <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                            </div>
+                            <select id="history-staff-filter" class="p-2 border border-gray-300 rounded-lg text-sm bg-white hidden w-full sm:w-48 outline-none focus:border-blue-500">
+                                <option value="all">All Collections</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="history-content-container" class="overflow-x-auto custom-scroll max-h-[65vh] p-4 relative">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="table-header">
+                                <tr><th class="p-3">Rcpt</th><th class="p-3">Date</th><th class="p-3">Student</th><th class="p-3">Collected By</th><th class="p-3 text-center">Items</th><th class="p-3">Total</th><th class="p-3 text-center">Actions</th></tr>
+                            </thead>
+                            <tbody id="history-content-tbody" class="divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                        <div id="history-loading-indicator" class="hidden text-center py-4 text-gray-500 font-bold text-sm">
+                            <i class="fas fa-spinner fa-spin mr-2"></i> Loading more...
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. Monthly Collected Page -->
+            <section id="monthly-collected-page" class="page-content hidden">
+                 <div class="card p-5 shadow-sm">
+                     <h2 class="text-xl font-bold mb-4 text-gray-800 border-b pb-2">Monthly Report</h2>
+                     <div id="monthly-report-summary" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5"></div>
+                     <div class="relative mb-5">
+                        <input type="text" id="monthly-collected-search-input" placeholder="Search by name, adm no or receipt..." class="w-full p-3 pl-10 border rounded-lg shadow-sm bg-gray-50">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                     <div class="flex flex-col sm:flex-row gap-3 mb-5">
+                        <button id="monthly-report-download-btn" class="btn-primary font-bold py-3 px-5 rounded-xl shadow-md inline-flex items-center justify-center gap-2">
+                            <i class="fas fa-file-csv"></i> Download CSV Summary
+                        </button>
+                        <div class="text-xs text-gray-500 font-medium flex items-center">
+                            Filter by student name, admission number, class, or receipt to update the report and export.
+                        </div>
+                     </div>
+                     <div id="monthly-collected-container" class="space-y-4"></div>
+                 </div>
+            </section>
+
+            <section id="donation-page" class="page-content hidden">
+                <div class="card p-5 shadow-sm max-w-3xl mx-auto">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800 border-b pb-2">Donation Entry</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="block text-sm font-semibold mb-1 text-gray-700">Donor Name</label><input type="text" id="donation-name" class="w-full p-2.5 rounded-lg" placeholder="Name"></div>
+                        <div><label class="block text-sm font-semibold mb-1 text-gray-700">Receipt No (Optional)</label><input type="number" id="donation-receipt" class="w-full p-2.5 rounded-lg" placeholder="Receipt number"></div>
+                        <div><label class="block text-sm font-semibold mb-1 text-gray-700">Amount (₹)</label><input type="number" id="donation-amount" class="w-full p-2.5 rounded-lg" placeholder="Amount"></div>
+                        <div><label class="block text-sm font-semibold mb-1 text-gray-700">Date</label><input type="date" id="donation-date" class="w-full p-2.5 rounded-lg"></div>
+                        <div class="md:col-span-2"><label class="block text-sm font-semibold mb-1 text-gray-700">Description</label><textarea id="donation-description" rows="3" class="w-full p-2.5 rounded-lg" placeholder="Donation details"></textarea></div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-3">
+                        <button id="save-donation-btn" class="btn-primary font-bold py-2.5 px-5 rounded-lg shadow-md">Save Donation</button>
+                        <span id="donation-save-msg" class="text-xs font-semibold text-emerald-700"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="collector-wise-monthly-page" class="page-content hidden">
+                <div class="card p-5 shadow-sm">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800 border-b pb-2">Collector-wise Monthly Total</h2>
+                    <p class="text-xs text-gray-500 font-medium mb-4">Admin view: monthly split by collector with default fee and other fee totals.</p>
+                    <div id="collector-wise-monthly-container" class="space-y-4"></div>
+                </div>
+            </section>
+
+            <!-- 6. Student Info Page -->
+            <section id="students-page" class="page-content hidden">
+                <div class="card p-4 shadow-sm mb-5">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800 border-b pb-2">Student Information</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase">Class</label><select id="stu-info-class" class="w-full p-2.5 mt-1 rounded-lg"><option value="">-- Select --</option></select></div>
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase">Gender</label><select id="stu-info-gender" class="w-full p-2.5 mt-1 rounded-lg"><option value="all">All</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase">Search</label><div class="relative mt-1"><input type="text" id="stu-info-search" placeholder="Name or Adm No..." class="w-full p-2.5 pl-8 rounded-lg"><i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i></div></div>
+                    </div>
+                </div>
+                <div id="stu-info-empty" class="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-500">Select a Class to view students.</div>
+                <div id="stu-info-list" class="space-y-2 hidden"></div>
+            </section>
+
+        </div>
+    </main>
+
+    <nav id="collection-bottom-nav" class="collection-bottom-nav" aria-label="Collection quick navigation">
+        <a href="#dashboard" class="collection-bottom-nav-link tab-link" data-target="dashboard-page" data-bottom-nav="true"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
+        <a href="#history" class="collection-bottom-nav-link tab-link" data-target="history-page" data-bottom-nav="true"><i class="fas fa-history"></i><span>History</span></a>
+        <a href="#home" class="collection-bottom-nav-link collection-bottom-nav-link-fee tab-link" data-target="home-page" data-bottom-nav="true" aria-label="Fee Entry"><i class="fas fa-edit"></i><span>Fee Entry</span></a>
+        <a href="#monthly" class="collection-bottom-nav-link tab-link" data-target="monthly-collected-page" data-bottom-nav="true"><i class="fas fa-chart-bar"></i><span>Monthly</span></a>
+        <a href="#students" class="collection-bottom-nav-link tab-link" data-target="students-page" data-bottom-nav="true"><i class="fas fa-user-graduate"></i><span>Students</span></a>
+    </nav>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="follow-title">FOLLOW US</div>
+        <div class="socials">
+            <a href="#" id="link-youtube" target="_blank" class="hidden"><i class="fa-brands fa-youtube"></i></a>
+            <a href="#" id="link-telegram" target="_blank" class="hidden"><i class="fa-brands fa-telegram-plane"></i></a>
+            <a href="#" id="link-instagram" target="_blank" class="hidden"><i class="fa-brands fa-instagram"></i></a>
+            <a href="#" id="link-whatsapp" target="_blank" class="hidden"><i class="fa-brands fa-whatsapp"></i></a>
+            <a href="#" id="link-facebook" target="_blank" class="hidden"><i class="fa-brands fa-facebook-f"></i></a>
+        </div>
+        <div class="corporate">
+           <a href="#" id="footer-email-link"><i class="fas fa-envelope"></i> <span id="footer-email">Email</span></a>
+           <a href="#" id="footer-phone-link"><i class="fas fa-phone"></i> <span id="footer-phone">Phone</span></a>
+        </div>
+        <div class="divider"></div>
+        <div class="copy">© <span id="footer-inst-name">Institution Name</span>. All Rights Reserved.</div>
+        <div class="powered">Developed by <a href="https://www.instagram.com/muhammed_sanjide_p" target="_blank">HADI MAHIRI FAIZY</a></div>
+        <div class="app-version-meta">
+            <div id="footer-version">Version: --</div>
+            <div id="footer-updated">Last Updated: --</div>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <div id="confirm-popup" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="text-xl font-bold mb-4 text-gray-900 border-b pb-2" id="confirm-title">Confirm</h3>
+            <div id="confirm-message" class="mb-6 text-left max-h-60 overflow-y-auto text-gray-700 text-sm"></div>
+            <div class="flex justify-end gap-3"><button id="confirm-cancel" class="px-5 py-2.5 rounded-lg bg-gray-200 font-semibold">Cancel</button><button id="confirm-ok" class="btn-primary px-5 py-2.5 rounded-lg font-bold shadow-md">OK</button></div>
+        </div>
+    </div>
+
+    <!-- My Profile Popup (Staff) -->
+    <div id="my-profile-popup" class="modal-overlay">
+        <div class="modal-box relative">
+            <button id="close-my-profile-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+            <h3 class="text-xl font-bold mb-4 text-gray-900 border-b pb-2 text-left">My Profile</h3>
+            
+            <img id="my-prof-img" src="https://via.placeholder.com/150" class="w-24 h-24 rounded-full mx-auto object-cover border-4 border-blue-50 shadow-md mb-4" onerror="this.src='assets/images/logo.png'">
+            <h2 id="my-prof-name" class="text-2xl font-bold text-gray-800">Name</h2>
+            <p id="my-prof-role" class="text-sm font-bold text-blue-600 uppercase tracking-wide mb-5">Role</p>
+
+            <div class="space-y-3 text-left bg-gray-50 p-4 rounded-xl border border-gray-100">
+                <div class="flex justify-between items-center border-b pb-2"><span class="text-xs text-gray-500 font-bold uppercase"><i class="fas fa-envelope mr-1"></i> Email</span><span class="font-medium text-sm text-gray-800" id="my-prof-email"></span></div>
+                <div class="flex justify-between items-center border-b pb-2"><span class="text-xs text-gray-500 font-bold uppercase"><i class="fas fa-phone mr-1"></i> Phone</span><span class="font-medium text-sm text-gray-800" id="my-prof-phone"></span></div>
+                <div class="flex justify-between items-center border-b pb-2"><span class="text-xs text-gray-500 font-bold uppercase"><i class="fas fa-id-card mr-1"></i> MSR No</span><span class="font-medium text-sm text-gray-800" id="my-prof-msr"></span></div>
+                <div class="flex justify-between items-start"><span class="text-xs text-gray-500 font-bold uppercase"><i class="fas fa-map-marker-alt mr-1"></i> Address</span><span class="font-medium text-sm text-gray-800 text-right max-w-[60%]" id="my-prof-addr"></span></div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="tab-settings-popup" class="modal-overlay">
+        <div class="modal-box relative max-w-md">
+            <button id="close-tab-settings-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+            <h3 class="text-xl font-bold mb-2 text-gray-900 border-b pb-2 text-left">Menu Settings</h3>
+            <p class="text-xs text-gray-500 text-left mb-3">Choose which tabs appear in your side menu.</p>
+            <div id="tab-settings-list" class="space-y-2 max-h-72 overflow-y-auto"></div>
+            <div class="mt-4 flex justify-end">
+                <button id="tab-settings-save-btn" class="btn-primary px-5 py-2.5 rounded-lg font-bold shadow-md">Save</button>
+            </div>
+        </div>
+    </div>
+    <!-- Student Profile Popup -->
+    <div id="student-profile-popup" class="modal-overlay hidden !p-3 sm:!p-4">
+        <div class="modal-box relative !max-w-lg w-full !p-0 text-left flex flex-col max-h-[86vh] sm:max-h-[84vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-200 bg-white">
+            <!-- Pinned Header -->
+            <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm shadow-2xs shrink-0">
+                        <i class="fas fa-id-card"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-900 leading-tight">Student Profile</h3>
+                        <p class="text-[11px] text-slate-500 font-medium leading-tight">Complete 15-Field Official Record</p>
+                    </div>
+                </div>
+                <button type="button" id="close-profile-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition" title="Close">
+                    <i class="fas fa-times text-base"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Body -->
+            <div class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3.5 min-h-0">
+                <!-- Top Identity Banner (1. Photo, 4. Name, 2. Class, 8. Adm No, 11. Status) -->
+                <div class="flex items-center gap-3.5 p-3 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-slate-50 border border-blue-100">
+                    <div class="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-white shadow-md overflow-hidden bg-slate-100 flex items-center justify-center shrink-0">
+                        <img id="prof-photo-img" src="" alt="Student Photo" class="w-full h-full object-cover hidden">
+                        <div id="prof-photo-avatar" class="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600 text-2xl font-black">
+                            <i class="fas fa-user-graduate"></i>
+                        </div>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-1.5 mb-1">
+                            <span id="prof-status" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">Active</span>
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-600 text-white">Class: <span id="prof-class">-</span></span>
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white text-slate-700 border border-slate-200">Adm: <span id="prof-adm">-</span></span>
+                        </div>
+                        <h2 id="prof-name" class="text-base sm:text-lg font-black text-slate-900 leading-snug break-words">-</h2>
+                        <div class="text-[11px] text-slate-500 font-semibold mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span>Gender: <b id="prof-gender" class="text-slate-700">-</b></span>
+                            <span>•</span>
+                            <span>UID: <b id="prof-uid" class="font-mono text-slate-700">-</b></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 15-Field Structured Details Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <div class="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-slate-400">5. Father's Name</div>
+                        <div id="prof-father" class="font-bold text-slate-800 mt-0.5 break-words">-</div>
+                    </div>
+                    <div class="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-slate-400">6. Mother's Name</div>
+                        <div id="prof-mother" class="font-bold text-slate-800 mt-0.5 break-words">-</div>
+                    </div>
+                    <div class="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-slate-400">9. Date of Birth (DOB)</div>
+                        <div id="prof-dob" class="font-bold font-mono text-slate-800 mt-0.5">-</div>
+                    </div>
+                    <div class="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-slate-400">10. Date of Admission</div>
+                        <div id="prof-adm-date" class="font-bold font-mono text-slate-800 mt-0.5">-</div>
+                    </div>
+                    <div class="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-slate-400">12. Aadhaar Number</div>
+                        <div id="prof-aadhaar" class="font-bold font-mono text-slate-800 mt-0.5">-</div>
+                    </div>
+                    <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-emerald-700">Fee Concession</div>
+                        <div id="prof-conc" class="font-extrabold text-emerald-800 mt-0.5">None</div>
+                    </div>
+                    <div class="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-slate-400">13. Father's Phone</div>
+                        <div class="flex items-center justify-between gap-2 mt-0.5">
+                            <span id="prof-mobile" class="font-bold font-mono text-slate-800">-</span>
+                            <a href="#" id="prof-call-btn" class="hidden px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold items-center gap-1 shadow-2xs transition">
+                                <i class="fas fa-phone text-[9px]"></i> Call
+                            </a>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-slate-400">14. Mother's Phone</div>
+                        <div class="flex items-center justify-between gap-2 mt-0.5">
+                            <span id="prof-mother-mobile" class="font-bold font-mono text-slate-800">-</span>
+                            <a href="#" id="prof-mother-call-btn" class="hidden px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold items-center gap-1 shadow-2xs transition">
+                                <i class="fas fa-phone text-[9px]"></i> Call
+                            </a>
+                        </div>
+                    </div>
+                    <div class="sm:col-span-2 bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase text-slate-400">15. Permanent Address</div>
+                        <div id="prof-addr" class="font-bold text-slate-800 mt-0.5 break-words leading-relaxed">-</div>
+                    </div>
+                </div>
+
+                <!-- Group Members Section -->
+                <div id="prof-group-wrap" class="hidden rounded-xl border border-blue-200 bg-blue-50/70 p-3">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="text-[10px] font-extrabold uppercase tracking-wider text-blue-800 flex items-center gap-1.5">
+                            <i class="fas fa-users text-blue-600"></i> Family / Sibling Group Members
+                        </span>
+                        <span id="prof-group-amount" class="text-xs font-extrabold text-blue-900 bg-white border border-blue-200 px-2.5 py-0.5 rounded-full"></span>
+                    </div>
+                    <div id="prof-group-members" class="space-y-1.5"></div>
+                </div>
+            </div>
+
+            <!-- Pinned Footer -->
+            <div class="px-4 py-2.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 shrink-0">
+                <button type="button" id="close-profile-footer-btn" class="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Fee Payment Modal for Master Ledger -->
+    <!-- Universal Fee Payment Modal for Master Ledger & Fee Status -->
+    <div id="master-ledger-pay-modal" class="modal-overlay hidden !p-3 sm:!p-4">
+        <div class="modal-box relative !max-w-md w-full !p-0 text-left flex flex-col max-h-[86vh] sm:max-h-[82vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-200">
+            <!-- Pinned Header -->
+            <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-white shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">
+                        <i class="fas fa-receipt"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-800 leading-tight">Record Fee Payment</h3>
+                        <p class="text-[11px] text-slate-500 leading-tight">Quick Fee Receipt Collection</p>
+                    </div>
+                </div>
+                <button type="button" id="ledger-pay-close-x" class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"><i class="fas fa-times text-base"></i></button>
+            </div>
+
+            <input type="hidden" id="ledger-pay-unit-id">
+            <input type="hidden" id="ledger-pay-month">
+            <input type="hidden" id="ledger-pay-item-key">
+            <input type="hidden" id="ledger-pay-item-name">
+            <input type="hidden" id="ledger-pay-item-type">
+            <input type="hidden" id="ledger-pay-student-id">
+            <input type="hidden" id="ledger-pay-student-name">
+            <input type="hidden" id="ledger-pay-student-class">
+            <input type="hidden" id="ledger-pay-student-adm">
+            <input type="hidden" id="ledger-pay-academic-year">
+            <input type="hidden" id="ledger-pay-source" value="ledger">
+            <input type="hidden" id="ledger-pay-payment-id" value="">
+            <input type="hidden" id="ledger-pay-txn-id" value="">
+
+            <!-- Scrollable Body (Target Info + Group / Selected Items List) -->
+            <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2.5 text-xs custom-scroll">
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <div class="flex items-center justify-between gap-2 mb-0.5">
+                        <span class="text-[10px] uppercase font-bold text-slate-500">Target Student / Family</span>
+                        <span id="ledger-pay-month-badge" class="text-[10px] font-black uppercase text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md truncate max-w-[160px]">--</span>
+                    </div>
+                    <div id="ledger-pay-names" class="font-bold text-slate-900 truncate text-xs sm:text-sm"></div>
+                    <div class="text-[10px] text-slate-500 mt-0.5 flex justify-between">
+                        <span>Guardian: <b id="ledger-pay-guardian" class="text-slate-700 font-semibold"></b></span>
+                        <span id="ledger-pay-class-tag" class="text-slate-600 font-mono"></span>
+                    </div>
+                </div>
+
+                <div id="ledger-pay-group-scope-wrap" class="hidden bg-amber-50/70 p-2.5 rounded-xl border border-amber-200 text-slate-800 text-[11px] space-y-2">
+                    <div class="flex items-center justify-between pb-1 border-b border-amber-200/60">
+                        <span class="text-[10px] uppercase font-bold text-amber-900 flex items-center gap-1.5">
+                            <i class="fas fa-users text-amber-700"></i> Family Group Students
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <span id="ledger-group-selected-count" class="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded">All Selected</span>
+                            <button type="button" id="ledger-group-toggle-all-btn" class="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline">Deselect All</button>
+                        </div>
+                    </div>
+                    <div id="ledger-pay-group-students-list" class="space-y-1.5 max-h-40 overflow-y-auto pr-0.5 custom-scroll">
+                        <!-- Dynamic vertical list of students with checkboxes -->
+                    </div>
+                </div>
+
+                <!-- Multi-Item Bulk Collection / Edit List -->
+                <div id="ledger-pay-multi-items-wrap" class="hidden bg-blue-50/60 p-2.5 rounded-xl border border-blue-200 text-slate-800 text-[11px] space-y-1.5">
+                    <div class="flex items-center justify-between pb-1 border-b border-blue-200/60">
+                        <span class="text-[10px] uppercase font-bold text-blue-900 flex items-center gap-1.5">
+                            <i class="fas fa-layer-group text-blue-600"></i> Selected Fee Items
+                        </span>
+                        <span id="ledger-multi-items-count" class="text-[10px] font-bold text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded">0 Items</span>
+                    </div>
+                    <div id="ledger-pay-multi-items-list" class="space-y-1.5 max-h-40 overflow-y-auto pr-0.5 custom-scroll">
+                        <!-- Dynamic list of selected fee items with individual editable amounts -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pinned Bottom Section: Payment Fields & Action Buttons -->
+            <div class="px-4 py-3 bg-slate-50/90 border-t border-slate-200 shrink-0 space-y-2.5 text-xs">
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-bold text-slate-600 mb-1 text-[11px]">Total Amount (₹)</label>
+                        <input type="number" id="ledger-pay-amount" class="form-input !mb-0 !py-2 !px-3 text-xs font-bold !rounded-xl" placeholder="Amount">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-600 mb-1 text-[11px] flex items-center justify-between">
+                            <span>Receipt No <span id="ledger-pay-receipt-req" class="text-rose-600 font-bold hidden">*</span></span>
+                            <span id="ledger-pay-receipt-badge" class="text-[9px] text-slate-400 font-normal">--</span>
+                        </label>
+                        <input type="number" id="ledger-pay-receipt" class="form-input !mb-0 !py-2 !px-3 text-xs font-mono font-bold !rounded-xl" placeholder="Receipt No">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-bold text-slate-600 mb-1 text-[11px]">Payment Mode</label>
+                        <select id="ledger-pay-mode" class="form-input !mb-0 !py-2 !px-3 text-xs font-bold !rounded-xl">
+                            <option value="Cash">Cash</option>
+                            <option value="UPI / GPay / PhonePe">UPI / GPay / PhonePe</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cheque">Cheque</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-600 mb-1 text-[11px]">Payment Date</label>
+                        <input type="date" id="ledger-pay-date" class="form-input !mb-0 !py-2 !px-3 text-xs font-semibold !rounded-xl">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/80">
+                    <button type="button" id="ledger-pay-cancel-btn" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs transition border border-slate-200 shadow-2xs">
+                        Cancel
+                    </button>
+                    <button type="button" id="ledger-pay-confirm-btn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                        <i class="fas fa-check"></i> Record Payment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Receipt & Payment Detail Modal -->
+    <div id="payment-receipt-view-modal" class="modal-overlay hidden">
+        <div class="modal-box relative max-w-sm text-left">
+            <button type="button" id="receipt-view-close-x" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fas fa-times text-lg"></i></button>
+            <div class="flex items-center gap-2 mb-3 border-b pb-2">
+                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-slate-800">Fee Receipt Details</h3>
+                    <p class="text-[11px] text-slate-500">Payment Verification & Management</p>
+                </div>
+            </div>
+
+            <input type="hidden" id="receipt-view-payment-id">
+            <input type="hidden" id="receipt-view-student-id">
+            <input type="hidden" id="receipt-view-txn-id">
+
+            <div class="space-y-3 mb-4 text-xs">
+                <div class="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100 flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] uppercase font-bold text-emerald-700">Receipt Number</div>
+                        <div id="receipt-view-no" class="font-black text-emerald-950 text-base font-mono">--</div>
+                    </div>
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px]">
+                        <i class="fas fa-check-circle text-[10px]"></i> Paid
+                    </span>
+                </div>
+
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Student & Class</div>
+                    <div id="receipt-view-name" class="font-bold text-slate-900 mt-0.5 truncate text-sm">--</div>
+                    <div id="receipt-view-meta" class="text-[11px] text-slate-600 mt-0.5">--</div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <div>
+                        <div class="text-[10px] uppercase font-bold text-slate-500">Fee Item</div>
+                        <div id="receipt-view-item" class="font-bold text-slate-800 mt-0.5">--</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] uppercase font-bold text-slate-500">Amount Paid</div>
+                        <div id="receipt-view-amount" class="font-extrabold text-blue-700 mt-0.5 text-sm font-mono">₹--</div>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-[10px] uppercase font-bold text-slate-500">Payment Date</div>
+                        <div id="receipt-view-date" class="font-semibold text-slate-700 mt-0.5">--</div>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-[10px] uppercase font-bold text-slate-500">Payment Mode</div>
+                        <div id="receipt-view-mode" class="font-semibold text-slate-700 mt-0.5">--</div>
+                    </div>
+                    <div class="col-span-2 mt-2 pt-2 border-t border-slate-200 text-[11px] text-slate-500 flex justify-between">
+                        <span>Collected By:</span>
+                        <b id="receipt-view-collector" class="text-slate-700 font-bold">--</b>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-2 border-t">
+                <button type="button" id="receipt-view-delete-btn" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition border border-rose-200 flex items-center gap-1">
+                    <i class="fas fa-trash text-[10px]"></i> Delete
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="receipt-view-print-btn" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition flex items-center gap-1.5 border border-slate-200">
+                        <i class="fas fa-print"></i> Print Slip
+                    </button>
+                    <button type="button" id="receipt-view-edit-btn" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- UI Logic Script (For Tabs & Menus) -->
+    <script src="scripts/shared/hub-navigation.js"></script>
+    <script type="module" src="scripts/pages/collection-page.js"></script>
+
+</body>
+</html>

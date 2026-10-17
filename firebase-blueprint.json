@@ -1,0 +1,207 @@
+{
+  "entities": {
+    "Setting": {
+      "title": "Setting",
+      "description": "Institution level settings including branding, session registry, and portal configs.",
+      "type": "object",
+      "properties": {
+        "appName": { "type": "string" },
+        "institutionName": { "type": "string" },
+        "regNo": { "type": "string" },
+        "place": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "aboutText": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "activeAcademicYear": { "type": "string" },
+        "defaultFee": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "Staff": {
+      "title": "Staff",
+      "description": "Teaching and administrative staff members.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "type": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "status": { "type": "string" },
+        "assignedClass": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "StaffAccess": {
+      "title": "StaffAccess",
+      "description": "Permissions and access control for staff members.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "loginId": { "type": "string" },
+        "passwordHash": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "collection": { "type": "boolean" },
+        "result": { "type": "boolean" },
+        "worksheet": { "type": "boolean" },
+        "admin": { "type": "boolean" },
+        "assignedClasses": { "type": "array" }
+      }
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student master profile.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "admissionNo": { "type": "string" },
+        "class": { "type": "string" },
+        "rollNo": { "type": "string" },
+        "gender": { "type": "string" },
+        "phone": { "type": "string" },
+        "guardianName": { "type": "string" },
+        "dob": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive", "Graduated", "Discontinued"] },
+        "photoUrl": { "type": "string" },
+        "concessionAmount": { "type": "number" },
+        "academicYear": { "type": "string" },
+        "academicYears": { "type": "object" },
+        "continuityLog": { "type": "array" },
+        "discontinuationDetails": { "type": "object" },
+        "readmissionDetails": { "type": "object" },
+        "notes": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "admissionNo"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Fee payment transactions.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "admissionNo": { "type": "string" },
+        "class": { "type": "string" },
+        "amount": { "type": "number" },
+        "paymentDate": { "type": "string" },
+        "paymentMode": { "type": "string" },
+        "receiptNo": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "feeItems": { "type": "array" },
+        "collectorName": { "type": "string" },
+        "collectorEmail": { "type": "string" },
+        "remarks": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["studentId", "amount", "paymentDate"]
+    },
+    "PublicDirectoryEntry": {
+      "title": "PublicDirectoryEntry",
+      "description": "Teachers, Committee members, and Public contacts displayed on website.",
+      "type": "object",
+      "properties": {
+        "categoryId": { "type": "string" },
+        "name": { "type": "string" },
+        "designation": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name"]
+    },
+    "ExamResult": {
+      "title": "ExamResult",
+      "description": "Exam result evaluation record for a student.",
+      "type": "object",
+      "properties": {
+        "examId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "admissionNo": { "type": "string" },
+        "studentName": { "type": "string" },
+        "class": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "marks": { "type": "object" },
+        "total": { "type": "number" },
+        "percentage": { "type": "number" },
+        "grade": { "type": "string" },
+        "rank": { "type": "number" },
+        "status": { "type": "string" },
+        "published": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["examId", "studentId"]
+    },
+    "SystemNotification": {
+      "title": "SystemNotification",
+      "description": "Announcements and alerts posted for students and staff.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "category": { "type": "string" },
+        "target": { "type": "string" },
+        "targetClass": { "type": "string" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "message"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System audit trail for administrative and financial operations.",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "user": { "type": "string" },
+        "role": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/institutions/{institutionId}/settings/{docId}": {
+      "schema": { "$ref": "#/entities/Setting" },
+      "description": "Global and module settings for the institution"
+    },
+    "/institutions/{institutionId}/staff/{docId}": {
+      "schema": { "$ref": "#/entities/Staff" },
+      "description": "Staff and teacher profiles"
+    },
+    "/institutions/{institutionId}/staffAccess/{docId}": {
+      "schema": { "$ref": "#/entities/StaffAccess" },
+      "description": "RBAC and access definitions for staff"
+    },
+    "/institutions/{institutionId}/students/{docId}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "Student roster and profiles"
+    },
+    "/institutions/{institutionId}/payments/{docId}": {
+      "schema": { "$ref": "#/entities/Payment" },
+      "description": "Fee payment records"
+    },
+    "/institutions/{institutionId}/publicDirectory/{docId}": {
+      "schema": { "$ref": "#/entities/PublicDirectoryEntry" },
+      "description": "Directory entries shown on the public site"
+    },
+    "/institutions/{institutionId}/examResults/{docId}": {
+      "schema": { "$ref": "#/entities/ExamResult" },
+      "description": "Student marks and examination records"
+    },
+    "/institutions/{institutionId}/systemNotifications/{docId}": {
+      "schema": { "$ref": "#/entities/SystemNotification" },
+      "description": "Notice board and notifications"
+    },
+    "/institutions/{institutionId}/auditLogs/{docId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Audit trail logs"
+    }
+  }
+}

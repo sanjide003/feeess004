@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en" data-session-guard="worksheet">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' https://www.gstatic.com https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' https: data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com wss://*.firebaseio.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://*.firebaseapp.com;">
+  <title>Class Worksheet & Registers - Official Portal</title>
+  
+  <script src="scripts/shared/session-guard.js"></script>
+  <script src="scripts/shared/page-guards.js"></script>
+  
+  <!-- CDNs & Global Styles -->
+  <link rel="stylesheet" href="styles/main.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  
+  <style>
+    /* ==========================================
+       GLOBAL CSS x& DASHBOARD STYLES
+       ========================================== */
+    :root { 
+        --background-light: #f3f4f6; 
+        --text-light: #1f2937; 
+        --card-light: #ffffff; 
+        --border-light: #e5e7eb; 
+        --primary-light: #3b82f6; 
+        --primary: #0f172a; 
+        --accent: #3b82f6; 
+        --white: #ffffff; 
+        --text-dark: #1e293b; 
+        --text-gray: #64748b; 
+        --header-height: 70px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: auto; }
+    body { overflow-x: hidden; background-color: var(--background-light); color: var(--text-light); }
+    body.modal-scroll-lock { overflow: hidden !important; overscroll-behavior: none; }
+    a { text-decoration: none; color: inherit; transition: 0.2s; }
+    ul { list-style: none; }
+    img { display: block; max-width: 100%; }
+    .hidden { display: none !important; }
+    .page-content { width: 100%; }
+
+    .card { background-color: var(--card-light); border: 1px solid var(--border-light); }
+    .btn-primary { background-color: var(--accent); color: #ffffff; transition: 0.2s; cursor: pointer; border: none; }
+    .btn-primary:hover { background-color: #2563eb; }
+
+    .popup-overlay { background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px); z-index: 5000; }
+    .modal-overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 5000; display: none; align-items: center; justify-content: center; padding: 15px; }
+    .modal-box { background: #ffffff; width: 100%; max-width: 340px; padding: 25px 20px; border-radius: 20px; position: relative; animation: popUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.15); }
+    @keyframes popUp { from { transform: scale(0.9) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+
+    .form-input { width: 100%; padding: 12px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; margin-bottom: 15px; outline: none; font-weight: 500; transition: 0.2s; color: #0f172a; font-size: 14px; }
+    .form-input:focus { border-color: var(--accent); background: white; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    input, select, textarea { background-color: #ffffff; border-color: #d1d5db; color: #1f2937; transition: border 0.2s; outline: none; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+
+    header { background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px); position: sticky; top: 10px; z-index: 1000; border: 1px solid #e2e8f0; height: var(--header-height); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04); border-radius: 16px; margin: 10px auto; width: calc(100% - 24px); max-width: 100%; }
+    @media (max-width: 768px) { header { margin: 8px; width: calc(100% - 16px); border-radius: 12px; top: 8px; } }
+    .nav-container { height: 100%; padding: 0 15px; display: flex; justify-content: space-between; align-items: center; position: relative; }
+    .header-branding-box { display: flex; align-items: center; gap: 10px; z-index: 10; }
+    .header-logo-box { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .header-logo-box img { max-height: 100%; max-width: 100%; border-radius: 10px; object-fit: contain; opacity: 1; }
+    .header-branding-box h1 { font-weight: 800; color: var(--primary); line-height: 1.2; font-size: 15px; margin: 0; }
+    .header-branding-box p { font-size: 11px; color: var(--text-gray); font-weight: 600; opacity: 0.85; margin-top: 1px; }
+
+    /* Navigation Bar and Hamburger Menu */
+    .mobile-toggle { 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        color: var(--primary); 
+        cursor: pointer; 
+        padding: 8px 10px; 
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        z-index: 1001; 
+        position: relative;
+        transition: all 0.2s ease;
+    }
+    .mobile-toggle:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .menu-icon-wrapper { 
+        width: 24px; 
+        height: 24px; 
+        position: relative; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+    }
+    .menu-icon-wrapper i { 
+        position: absolute; 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        font-size: 20px; 
+    }
+    .icon-bars { opacity: 1; transform: rotate(0deg) scale(1); color: #1e293b; }
+    .icon-close { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+    .active-toggle { background: #fee2e2 !important; border-color: #fca5a5 !important; }
+    .active-toggle .icon-bars { opacity: 0; transform: rotate(90deg) scale(0.5); }
+    .active-toggle .icon-close { opacity: 1; transform: rotate(0deg) scale(1); color: #ef4444; }
+
+    .nav-menu { 
+        position: absolute; 
+        top: calc(100% + 12px); 
+        right: 0; 
+        width: min(300px, calc(100vw - 30px)); 
+        max-height: min(78vh, 600px); 
+        overflow-y: auto; 
+        background: rgba(255, 255, 255, 0.98); 
+        backdrop-filter: blur(16px); 
+        flex-direction: column; 
+        align-items: stretch; 
+        padding: 14px; 
+        gap: 6px; 
+        border: 1px solid #e2e8f0; 
+        border-radius: 20px; 
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15); 
+        transform: translateY(-12px) scale(0.96); 
+        opacity: 0; 
+        pointer-events: none; 
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease; 
+        transform-origin: top right; 
+        z-index: 1100; 
+        display: flex; 
+    }
+    .nav-menu.active { 
+        transform: translateY(0) scale(1); 
+        opacity: 1; 
+        pointer-events: auto; 
+    }
+    .nav-link { 
+        font-size: 13.5px; 
+        font-weight: 600; 
+        color: #334155; 
+        width: 100%; 
+        display: flex; 
+        align-items: center; 
+        gap: 12px; 
+        padding: 10px 14px; 
+        border-radius: 12px; 
+        transition: all 0.18s ease; 
+    }
+    .nav-link:hover { 
+        background: #f1f5f9; 
+        color: #0f172a; 
+    }
+    .nav-link.active { 
+        background: #0f172a !important; 
+        color: #ffffff !important; 
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); 
+    }
+    .nav-link.active i { 
+        color: #60a5fa !important; 
+    }
+    .login-btn-nav { 
+        width: 100%; 
+        text-align: center; 
+        justify-content: center; 
+        padding: 10px 16px; 
+        border-radius: 12px; 
+        font-weight: 700; 
+        font-size: 13px; 
+        cursor: pointer; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        border: none; 
+        transition: all 0.2s ease; 
+    }
+    .btn-danger { 
+        background: #ef4444; 
+        color: #ffffff; 
+    }
+    .btn-danger:hover { 
+        background: #dc2626; 
+    }
+
+    /* Tabbed Modal & Staff Card Styling */
+    .modal-nav-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 12px; font-size: 13px; font-weight: 700; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; transition: all 0.2s ease; cursor: pointer; }
+    .modal-nav-tab:hover { background: #e2e8f0; color: #1e293b; }
+    .modal-nav-tab.active { background: #1e293b; color: #ffffff; border-color: #0f172a; box-shadow: 0 4px 12px rgba(15,23,42,0.15); }
+    .student-avatar-thumb { width: 38px; height: 38px; border-radius: 10px; object-fit: cover; border: 1.5px solid #cbd5e1; background: #f8fafc; flex-shrink: 0; }
+    .staff-compact-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 16px; transition: all 0.2s ease; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-shadow: 0 4px 14px rgba(15,23,42,0.03); }
+    .staff-compact-card:hover { border-color: #60a5fa; transform: translateY(-2px); box-shadow: 0 12px 24px rgba(15,23,42,0.08); }
+
+    /* Sticky Header & Left Columns for Students Register */
+    .stu-reg-scroll-wrap {
+      max-height: 70vh;
+      overflow: auto;
+      position: relative;
+    }
+    .stu-reg-table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .stu-reg-table th,
+    .stu-reg-table td {
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .stu-reg-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background-color: #f1f5f9;
+      border-top: 1px solid #e2e8f0;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    .stu-reg-table th.stu-sticky-col-1,
+    .stu-reg-table td.stu-sticky-col-1 {
+      position: sticky;
+      left: 0;
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
+      border-left: 1px solid #e2e8f0;
+    }
+    .stu-reg-table th.stu-sticky-col-2,
+    .stu-reg-table td.stu-sticky-col-2 {
+      position: sticky;
+      left: 48px;
+      width: 58px;
+      min-width: 58px;
+      max-width: 58px;
+    }
+    .stu-reg-table th.stu-sticky-col-3,
+    .stu-reg-table td.stu-sticky-col-3 {
+      position: sticky;
+      left: 106px;
+      min-width: 195px;
+      max-width: 240px;
+      box-shadow: 3px 0 6px -2px rgba(15, 23, 42, 0.12);
+    }
+    .stu-reg-table tbody tr:nth-child(odd) td.stu-sticky-col-1,
+    .stu-reg-table tbody tr:nth-child(odd) td.stu-sticky-col-2,
+    .stu-reg-table tbody tr:nth-child(odd) td.stu-sticky-col-3 {
+      background-color: #ffffff;
+      z-index: 10;
+    }
+    .stu-reg-table tbody tr:nth-child(even) td.stu-sticky-col-1,
+    .stu-reg-table tbody tr:nth-child(even) td.stu-sticky-col-2,
+    .stu-reg-table tbody tr:nth-child(even) td.stu-sticky-col-3 {
+      background-color: #f8fafc;
+      z-index: 10;
+    }
+    .stu-reg-table tbody tr:hover td.stu-sticky-col-1,
+    .stu-reg-table tbody tr:hover td.stu-sticky-col-2,
+    .stu-reg-table tbody tr:hover td.stu-sticky-col-3 {
+      background-color: #eff6ff;
+    }
+    .stu-reg-table thead th.stu-sticky-col-1,
+    .stu-reg-table thead th.stu-sticky-col-2,
+    .stu-reg-table thead th.stu-sticky-col-3 {
+      z-index: 30;
+      background-color: #f1f5f9;
+    }
+
+    .official-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+    .official-metric-card{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #dbeafe;border-radius:18px;background:linear-gradient(135deg,#fff,#eff6ff);padding:14px;box-shadow:0 8px 20px rgba(15,23,42,.06)}
+    .official-metric-card i{font-size:24px;opacity:.75}
+    .official-metric-card.green{border-color:#bbf7d0;background:linear-gradient(135deg,#fff,#f0fdf4);color:#166534}
+    .official-metric-card.teal{border-color:#99f6e4;background:linear-gradient(135deg,#fff,#f0fdfa);color:#0f766e}
+    .official-metric-card.indigo{border-color:#c7d2fe;background:linear-gradient(135deg,#fff,#eef2ff);color:#3730a3}
+    .official-metric-card.amber{border-color:#fde68a;background:linear-gradient(135deg,#fff,#fffbeb);color:#92400e}
+    .official-metric-card.purple{border-color:#e9d5ff;background:linear-gradient(135deg,#fff,#faf5ff);color:#7e22ce}
+    .official-metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:900;color:#64748b}
+    .official-metric-value{font-size:26px;line-height:1;font-weight:900;color:#0f172a;margin-top:4px}
+    
+    .official-quick-card,.official-card-button,.official-student-card{width:100%;text-align:left;border:1px solid #e2e8f0;background:#fff;border-radius:18px;padding:14px;box-shadow:0 8px 20px rgba(15,23,42,.05);transition:transform .2s,box-shadow .2s,border-color .2s}
+    .official-quick-card:hover,.official-card-button:hover,.official-student-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgba(15,23,42,.09);border-color:#93c5fd}
+    .official-quick-card{display:flex;flex-direction:column;gap:7px}
+    .official-quick-card i{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:#eef2ff;color:#4f46e5;font-size:18px}
+    .official-quick-card b{color:#0f172a}
+    .official-quick-card span{font-size:12px;font-weight:700;color:#64748b}
+    .official-card-button{padding:0;margin-bottom:10px}
+    .official-card-button .official-profile-card{border:0;box-shadow:none;width:100%;min-height:auto}
+    .official-student-card{display:none;margin-bottom:10px}
+    .official-profile-card{width:100%;min-height:auto}
+    
+    @media (max-width: 767px){
+      .stu-reg-scroll-wrap{ display: none !important; }
+      .official-mobile-card-list{ display: block !important; }
+      .official-student-card{ display: flex !important; }
+      .official-tab table{ font-size: 11px; }
+    }
+    @media (min-width: 768px){
+      .stu-reg-scroll-wrap{ display: block !important; }
+      .official-mobile-card-list{ display: none !important; }
+    }
+    
+    .official-me-card{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 45%,#ec4899 100%);border:1px solid rgba(255,255,255,.35)}
+    .official-me-hero{background:radial-gradient(circle at top left,rgba(255,255,255,.28),transparent 35%),radial-gradient(circle at bottom right,rgba(34,211,238,.26),transparent 38%)}
+    .official-me-photo{width:154px;height:154px;border-radius:34px;object-fit:cover;border:5px solid rgba(255,255,255,.72);box-shadow:0 24px 45px rgba(15,23,42,.26)}
+    .official-access-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);padding:7px 11px;color:#fff;font-size:12px;font-weight:900;backdrop-filter:blur(8px)}
+
+    .icon-badge { width: 45px; height: 45px; background: #eff6ff; color: var(--accent); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin: 0 auto 12px; }
+    .modal-title { color: var(--primary); margin-bottom: 20px; font-weight: 800; font-size: 18px; }
+    .input-with-icon { position: relative; margin-bottom: 15px; }
+    .form-input-with-trailing-icon { margin-bottom: 0; padding-right: 40px; }
+    .trailing-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; font-size: 16px; }
+    .auth-alert { color: #ef4444; font-size: 12px; display: none; margin-bottom: 15px; font-weight: 700; background: #fef2f2; padding: 8px; border-radius: 8px; border: 1px solid #fecaca; }
+    .main-login-btn { background: var(--primary); color: var(--white); border: none; padding: 12px 30px; border-radius: 50px; font-size: 15px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.2); transition: all 0.3s; width: auto; }
+    .main-login-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(15, 23, 42, 0.3); }
+
+    .id-card{width:336px;max-width:100%;min-height:210px;background:#fff;border:1px solid #dbe4f0;border-radius:18px;padding:14px;box-shadow:0 8px 20px rgba(15,23,42,.06)}
+    .id-card-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+    .id-photo{width:56px;height:56px;border-radius:12px;object-fit:cover;border:1px solid #cbd5e1}
+    .badge{padding:4px 10px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:700}
+    .details-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .detail-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px}
+    .detail-label{font-size:10px;text-transform:uppercase;color:#64748b;font-weight:800}
+    .detail-value{font-size:12px;color:#0f172a;font-weight:600;word-break:break-word}
+
+    /* ==========================================
+       EXCEL SPREADSHEET UI STYLES
+       ========================================== */
+
+    .excel-container { display: flex; flex-direction: column; height: 100%; background: #f3f2f1; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;}
+    
+    .excel-ribbon-wrapper { background: #f3f2f1; border-bottom: 1px solid #c8c6c4; padding-top: 4px; z-index: 40; position: relative;}
+    .excel-tabs { display: flex; gap: 4px; padding: 0 10px; border-bottom: 1px solid #c8c6c4;}
+    .excel-tab { padding: 4px 16px; font-size: 13px; color: #323130; cursor: pointer; border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0; position: relative; bottom: -1px; transition: 0.1s; background: transparent;}
+    .excel-tab:hover { background: #e1dfdd; }
+    .excel-tab.active { background: #ffffff; color: #107c41; font-weight: 600; border-color: #c8c6c4; border-bottom-color: #ffffff; z-index: 10; }
+    
+    .excel-ribbon { background: #ffffff; display: flex; padding: 6px 10px; gap: 16px; align-items: flex-start; overflow-x: auto; min-height: 84px; scrollbar-width: none;}
+    .excel-ribbon::-webkit-scrollbar { display: none; }
+    .ribbon-panel { display: none; width: 100%; align-items: flex-start; gap: 16px;}
+    .ribbon-panel.active { display: flex; }
+
+    .ribbon-group { display: flex; flex-direction: column; align-items: center; justify-content: space-between; border-right: 1px solid #e1dfdd; padding-right: 16px; min-height: 68px; }
+    .ribbon-group:last-child { border-right: none; }
+    .ribbon-row { display: flex; gap: 4px; align-items: center; width: 100%; justify-content: center;}
+    .ribbon-label { font-size: 11px; color: #605e5c; margin-top: auto; }
+
+    .excel-btn-ribbon { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 48px; height: 50px; border-radius: 4px; border: 1px solid transparent; color: #323130; cursor: pointer; background: transparent; transition: 0.1s;}
+    .excel-btn-ribbon:hover { background: #f3f2f1; border-color: #c8c6c4;}
+    .excel-btn-ribbon:active { background: #e1dfdd; transform: scale(0.96); }
+    .excel-btn-ribbon i { font-size: 18px; }
+    .excel-btn-ribbon span { font-size: 10px; }
+
+    .excel-btn-small { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; border: 1px solid transparent; cursor: pointer; color: #323130; transition: 0.1s;}
+    .excel-btn-small:hover { background: #f3f2f1; border-color: #c8c6c4;}
+    .excel-btn-small:active { background: #e1dfdd; transform: scale(0.95);}
+
+    .excel-input-ribbon { border: 1px solid #8a8886; border-radius: 2px; padding: 2px 6px; font-size: 12px; height: 26px; outline: none; color: #323130;}
+    .excel-input-ribbon:focus { border-color: #107c41; box-shadow: 0 0 0 1px #107c41; }
+
+    .premium-export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; transition: 0.2s; border: none; }
+    .btn-excel-green { background: #107c41;}
+    .btn-excel-green:hover { background: #185c37; }
+    .btn-pdf-red { background: #d83b01; }
+    .btn-pdf-red:hover { background: #a4262c; }
+
+    .formula-bar { display: flex; align-items: center; background: #fff; border-bottom: 1px solid #c8c6c4; padding: 4px 10px; gap: 10px;}
+    .formula-name-box { width: 60px; font-size: 13px; text-align: center; color: #323130; font-family: monospace; font-weight: bold;}
+    .formula-divider { width: 1px; height: 18px; background: #c8c6c4; }
+    .formula-icon { color: #605e5c; font-style: italic; font-family: 'Times New Roman', Times, serif; font-weight: bold; font-size: 14px;}
+    .formula-input { flex-grow: 1; border: none; outline: none; font-size: 13px; color: #000; padding: 2px 5px;}
+
+    .excel-workspace { flex-grow: 1; overflow: auto; padding: 15px; position: relative; background: #e1dfdd;}
+    .excel-workspace::-webkit-scrollbar { width: 12px; height: 12px; }
+    .excel-workspace::-webkit-scrollbar-track { background: #f3f2f1; }
+    .excel-workspace::-webkit-scrollbar-thumb { background: #c8c6c4; border: 2px solid #f3f2f1; border-radius: 6px; }
+    .excel-workspace::-webkit-scrollbar-thumb:hover { background: #a19f9d; }
+
+    .print-canvas { background: #fff; margin: 0 auto; min-height: 600px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); position: relative; overflow: visible; border-right: 2px dashed #ef4444; transform-origin: top center; transition: width 0.2s ease;}
+    .print-canvas[data-paper="A4"][data-orient="portrait"] { width: 210mm; }
+    .print-canvas[data-paper="A4"][data-orient="landscape"] { width: 297mm; }
+    .print-canvas[data-paper="Legal"][data-orient="portrait"] { width: 8.5in; }
+    .print-canvas[data-paper="Legal"][data-orient="landscape"] { width: 14in; }
+    .print-canvas[data-paper="A3"][data-orient="portrait"] { width: 297mm; }
+    .print-canvas[data-paper="A3"][data-orient="landscape"] { width: 420mm; }
+    .print-canvas[data-margin="narrow"] { padding: 4mm; }
+    .print-canvas[data-margin="normal"] { padding: 10mm; }
+    .print-canvas[data-margin="wide"] { padding: 18mm; }
+
+    .excel-table { border-collapse: collapse; min-width: 100%; width: 100%; table-layout: auto;}
+    .excel-table th, .excel-table td { border: 1px solid #d4d4d4; padding: 4px 6px; font-size: 13px; color: #000; background: #fff; vertical-align: middle;}
+    .excel-table.hide-gridlines td.excel-cell { border-color: transparent; }
+    .excel-table.print-gridlines-off td.excel-cell { border-color: #e5e7eb; }
+    
+    .col-header, .row-header, .select-all-corner { background-color: #e6e6e6 !important; color: #333 !important; text-align: center !important; font-size: 12px !important; font-weight: normal !important; user-select: none; cursor: pointer; padding: 2px !important;}
+    .col-header:hover, .row-header:hover, .select-all-corner:hover { background-color: #d4d4d4 !important; }
+    .col-header.selected, .row-header.selected, .select-all-corner.selected { background-color: #cacaca !important; color: #107c41 !important; font-weight: bold !important; border-bottom: 2px solid #107c41 !important;}
+    .row-header.selected { border-bottom: 1px solid #d4d4d4 !important; border-right: 2px solid #107c41 !important;}
+
+    .excel-cell { outline: none; transition: 0.08s; white-space: nowrap; overflow: hidden; position: relative;}
+    .excel-cell.wrap-text { white-space: pre-wrap !important; word-break: break-word !important; }
+    .excel-cell.selected { background-color: #e5f3eb !important; }
+    .excel-cell.selected::after { content: ''; position: absolute; inset: -1px; border: 2px solid #107c41; z-index: 10; pointer-events: none; }
+    .excel-cell:focus { z-index: 12; }
+    .excel-cell:focus::after { content: ''; position: absolute; inset: -1px; border: 2px solid #107c41; z-index: 12; pointer-events: none; }
+
+    .config-row th { background: #f8fafc; padding: 4px; border-bottom: 2px solid #334155;}
+    .grid-select { width: 100%; border: 1px solid #c8c6c4; padding: 2px; font-size: 11px; outline: none; color: #333; border-radius: 2px;}
+    .grid-select:focus { border-color: #107c41;}
+    .grid-input { width: 100%; border: 1px solid transparent; padding: 2px 4px; font-size: 12px; font-weight: bold; outline: none; color: #000; border-top: none;}
+    .grid-input:focus { border-color: #c8c6c4;}
+    .grid-input:hover { border-color: #e1dfdd; }
+
+    .col-resizer { position: absolute; right: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 20; }
+    .col-resizer:hover { background: rgba(16, 124, 65, 0.5); }
+    .builder-th { position: relative; }
+
+    .print-only-heading { display: none; }
+    .builder-print-header { display: none; }
+    .builder-print-header.repeat-header { display: table-header-group; }
+    .print-header-content { text-align: center; padding-bottom: 12px; margin-bottom: 8px; border-bottom: 2px solid #333; }
+    .print-inst-name { font-size: 22px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin: 0; }
+    .print-inst-sub { font-size: 13px; font-weight: 600; color: #334155; margin: 2px 0; }
+    .print-custom-title { font-size: 16px; font-weight: 800; color: #1e3a8a; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .builder-signature-footer { display: none; margin-top: 28px; padding-top: 18px; page-break-inside: avoid; }
+    .builder-signature-footer.visible-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; text-align: center; font-size: 12px; font-weight: 700; color: #1e293b; }
+    .sig-line { border-top: 1.5px dashed #334155; padding-top: 6px; width: 80%; margin: 24px auto 0; }
+
+    @media print {
+        body.is-printing { background: #fff; margin: 0; padding: 0; }
+        body.is-printing * { visibility: hidden; }
+        body.is-printing #print-canvas, body.is-printing #print-canvas * { visibility: visible; }
+        body.is-printing #print-canvas { position: absolute; left: 0; top: 0; width: 100% !important; max-width: none !important; margin: 0; padding: 0; border: none; box-shadow: none; overflow: visible; }
+        body.is-printing .no-print { display: none !important; }
+        body.is-printing .print-only-heading { display: block !important; font-size: 12px; font-weight: 800; text-align: center; padding: 4px; color: #000; }
+        body.is-printing .config-row th { border: 1px solid #000 !important; background: #f1f5f9 !important; }
+        body.is-printing .builder-print-header { display: table-header-group !important; }
+        body.is-printing .excel-table.print-gridlines-off td.excel-cell { border-color: transparent !important; }
+        body.is-printing .excel-cell { white-space: normal; word-break: break-word;}
+        .page-break-before { page-break-before: always; break-before: page; }
+    }
+  </style>
+</head>
+
+<body class="antialiased text-gray-800 collection-shell" data-page-type="worksheet">
+
+  <div id="official-app" class="h-screen flex flex-col">
+    <header class="no-print shrink-0">
+      <div class="nav-container">
+        <div class="header-branding-box">
+          <div class="header-logo-box">
+            <img id="header-logo" src="assets/images/logo.png" alt="Logo" onerror="this.style.display='none'">
+          </div>
+          <div>
+            <div class="text-[10px] sm:text-[11px] font-extrabold text-teal-700 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fas fa-file-excel text-teal-600"></i>
+              <span>Class Worksheet & Registers</span>
+            </div>
+            <h1 id="header-title" class="font-extrabold text-slate-900 text-sm sm:text-base leading-tight">Official Portal</h1>
+            <p id="header-subtitle" class="text-xs text-slate-500 font-bold"><span id="official-user-line">--</span></p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Hamburger Menu Toggle Button -->
+          <button class="mobile-toggle" id="mobile-menu-btn" aria-label="Toggle navigation menu" aria-expanded="false" type="button">
+            <div class="menu-icon-wrapper">
+              <i class="fas fa-bars icon-bars"></i>
+              <i class="fas fa-times icon-close"></i>
+            </div>
+          </button>
+        </div>
+
+        <!-- Dropdown Menu -->
+        <ul class="nav-menu" aria-label="Official navigation">
+          <div class="bg-blue-50 border border-blue-100 p-3 rounded-xl shadow-xs mb-2 text-center">
+            <div class="text-[10px] text-blue-500 font-bold uppercase tracking-wider">Logged in as</div>
+            <div id="staff-name-display" class="text-blue-900 font-extrabold truncate text-sm">--</div>
+            <div id="staff-role-display" class="text-[11px] text-blue-600 font-semibold truncate">Official Portal</div>
+          </div>
+          <li><a href="#summary" class="nav-link tab-link active" data-tab="summary"><i class="fas fa-chart-pie text-lg w-6 text-emerald-600"></i> <span>Dashboard (Class Summary)</span></a></li>
+          <li><a href="#students" class="nav-link tab-link" data-tab="students"><i class="fas fa-users text-lg w-6 text-blue-600"></i> <span>Students Register</span></a></li>
+          <li><a href="#alumni" class="nav-link tab-link text-amber-700" data-tab="alumni"><i class="fas fa-user-graduate text-lg w-6 text-amber-600"></i> <span>Alumni Register</span></a></li>
+          <li><a href="#staff" class="nav-link tab-link" data-tab="staff"><i class="fas fa-chalkboard-teacher text-lg w-6 text-indigo-600"></i> <span>Staff Directory</span></a></li>
+          <li><a href="#export" class="nav-link tab-link font-bold text-teal-700" data-tab="export"><i class="fas fa-file-excel text-lg w-6 text-teal-600"></i> <span>Class Worksheet</span></a></li>
+          <div class="border-t border-slate-200 my-1"></div>
+          <li><a href="official.html" class="nav-link font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200"><i class="fas fa-th-large text-lg w-6 text-blue-600"></i> <span>Official Hub</span></a></li>
+          <li><button id="official-logout-btn" class="login-btn-nav btn-danger !w-full"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></button></li>
+        </ul>
+      </div>
+    </header>
+
+    <main id="app" class="flex-grow flex flex-col overflow-hidden relative w-full max-w-none">
+      <div id="page-content" class="h-full w-full max-w-none overflow-y-auto">
+        <section id="official-tab-summary" class="official-tab page-content w-full max-w-none p-2 sm:p-4"></section>
+        <section id="official-tab-students" class="official-tab page-content hidden w-full max-w-none p-2 sm:p-4"></section>
+        <section id="official-tab-alumni" class="official-tab page-content hidden w-full max-w-none p-2 sm:p-4"></section>
+        <section id="official-tab-staff" class="official-tab page-content hidden w-full max-w-none p-2 sm:p-4"></section>
+      </div>
+      
+      <!-- Excel Interface Container -->
+      <section id="official-tab-export" class="official-tab hidden h-full w-full max-w-none flex-col bg-[#f3f2f1]"></section>
+    </main>
+
+    <div id="official-detail-modal" class="fixed inset-0 z-[1000] hidden items-center justify-center bg-slate-950/60 p-2 sm:p-4 no-print" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="official-detail-title">
+      <div class="official-detail-dialog w-full max-w-5xl max-h-[94vh] overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-2xl border border-slate-200">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 bg-slate-50">
+          <div>
+            <h2 id="official-detail-title" class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Details</h2>
+            <p class="text-[11px] sm:text-xs font-semibold text-slate-500">Official student profile</p>
+          </div>
+          <button id="official-detail-close" type="button" class="h-8 w-8 sm:h-10 sm:w-10 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 flex items-center justify-center cursor-pointer transition" aria-label="Close details"><i class="fas fa-times text-xs sm:text-sm"></i></button>
+        </div>
+        <div id="official-detail-body" class="max-h-[calc(94vh-56px)] overflow-y-auto p-2.5 sm:p-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="scripts/pages/official-shared-bootstrap.js"></script>
+
+</body>
+</html>

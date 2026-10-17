@@ -1,0 +1,9 @@
+{
+  "name": "Noorul Islam Madrasa Fee Management",
+  "description": "Fee management and administrative system for Noorul Islam Higher Secondary Madrasa.",
+  "requestFramePermissions": ["camera"],
+  "permissions": {},
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

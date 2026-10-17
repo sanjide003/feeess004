@@ -1,0 +1,6 @@
+{
+  "summary": "Architectural and UX implementation plan for the dedicated 'Discontinue & Re-admission' feature in the Madrasa Admin Portal. Tracks multi-year student gaps, manages departures and returns with detailed Malayalam and English notes, preserves historical pending fee ledgers up to the departure date without billing for gap years, and logs complete multi-year academic trajectories.",
+  "updatedAt": "2026-10-14T00:21:38.071867317Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fee Management System</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+
+    <!-- Firebase v9 Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <!-- PapaParse for CSV Upload -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- SheetJS for Excel Upload -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- PDF Table Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background-color: #f8fafc; color: #1e293b; }
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .table-container { max-height: calc(100vh - 220px); overflow: auto; }
+        .student-table-head th { position: sticky; top: 0; z-index: 30; background: #f8fafc; }
+        .sticky-col-1 { position: sticky; left: 0; z-index: 20; background: white; }
+        .sticky-col-2 { position: sticky; left: 40px; z-index: 20; background: white; }
+        .sticky-col-3 { position: sticky; left: 110px; z-index: 20; background: white; }
+        .student-table-head th.sticky-col-1,
+        .student-table-head th.sticky-col-2,
+        .student-table-head th.sticky-col-3 { z-index: 35; background: #f1f5f9; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+    <div id="root"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdUyk_yvZoQ1JI1pPLJTK51U91BVO0XSA",
+            authDomain: "bright-tube-p07pf.firebaseapp.com",
+            projectId: "bright-tube-p07pf",
+            storageBucket: "bright-tube-p07pf.firebasestorage.app",
+            messagingSenderId: "239455260650",
+            appId: "1:239455260650:web:5c3d61cbd8fcfefccc6c93",
+            firestoreDatabaseId: "ai-studio-feee-81b4709b-982c-4f96-b21b-c346855b9aa2"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = app.firestore(firebaseConfig.firestoreDatabaseId);
+
+        auth.onAuthStateChanged(user => {
+            if (!user) {
+                auth.signInAnonymously().catch(err => console.warn('Anonymous auth notice:', err));
+            }
+        });
+
+        const BASE_PATH_GLOBAL = 'institutions/TEST_INSTITUTE_01';
+        const originalCollection = db.collection;
+        db.collection = function(path) {
+            if (path && !path.startsWith('institutions/')) {
+                return originalCollection.call(db, `${BASE_PATH_GLOBAL}/${path}`);
+            }
+            return originalCollection.call(db, path);
+        };
+        const originalDoc = db.doc;
+        db.doc = function(path) {
+            if (path && !path.startsWith('institutions/')) {
+                return originalDoc.call(db, `${BASE_PATH_GLOBAL}/${path}`);
+            }
+            return originalDoc.call(db, path);
+        };
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+        const BASE_PATH = 'institutions/TEST_INSTITUTE_01';
+
+        const ALL_MONTHS_BASE = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const DEFAULT_ACADEMIC_MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
+        const MONTH_NAME_MAP = {
+            'jan': 'Jan', 'january': 'Jan',
+            'feb': 'Feb', 'february': 'Feb',
+            'mar': 'Mar', 'march': 'Mar',
+            'apr': 'Apr', 'april': 'Apr',
+            'may': 'May',
+            'jun': 'Jun', 'june': 'Jun',
+            'jul': 'Jul', 'july': 'Jul',
+            'aug': 'Aug', 'august': 'Aug',
+            'sep': 'Sep', 'september': 'Sep',
+            'oct': 'Oct', 'october': 'Oct',
+            'nov': 'Nov', 'november': 'Nov',
+            'dec': 'Dec', 'december': 'Dec'
+        };
+
+        const matchMonthFromKey = (key = '') => {
+            if (!key) return null;
+            const str = String(key).toLowerCase().trim();
+            for (const [k, v] of Object.entries(MONTH_NAME_MAP)) {
+                if (str === k || str.startsWith(k) || str.includes(k)) return v;
+            }
+            return null;
+        };
+
+        const formatCurrency = (amt) => {
+            const num = Number(amt) || 0;
+            return `₹${num.toLocaleString('en-IN')}`;
+        };
+
+        // Custom Confirm Modal
+        const CustomConfirm = ({ isOpen, title = "Confirm", message, onConfirm, onCancel, confirmText = "Confirm", type = "danger" }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[300] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-150">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${type === 'danger' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                                <i className={type === 'danger' ? 'fas fa-exclamation-triangle' : 'fas fa-info-circle'}></i>
+                            </div>
+                            <h3 className="text-base font-bold text-slate-800">{title}</h3>
+                        </div>
+                        <p className="text-slate-600 mb-6 text-sm leading-relaxed whitespace-pre-line">{message}</p>
+                        <div className="flex justify-end space-x-2">
+                            <button onClick={onCancel} className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-xs font-bold text-slate-700 transition">Cancel</button>
+                            <button onClick={onConfirm} className={`px-4 py-2 rounded-lg text-white text-xs font-bold shadow-sm transition ${type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                {confirmText}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Custom Alert Modal
+        const CustomAlert = ({ isOpen, title = "Notice", message, onClose }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[300] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-150">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                                <i className="fas fa-bell"></i>
+                            </div>
+                            <h3 className="text-base font-bold text-slate-800">{title}</h3>
+                        </div>
+                        <p className="text-slate-600 mb-6 text-sm">{message}</p>
+                        <div className="flex justify-end">
+                            <button onClick={onClose} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition">OK</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
+            const [activeTab, setActiveTab] = useState(() => {
+                const view = urlParams.get('view');
+                if (view && ['DASHBOARD', 'STUDENTS', 'FEE_HISTORY'].includes(view.toUpperCase())) {
+                    return view.toUpperCase();
+                }
+                return 'STUDENTS';
+            });
+
+            const [students, setStudents] = useState([]);
+            const [studentGroups, setStudentGroups] = useState([]);
+            const [payments, setPayments] = useState([]);
+            const [allAcademicYears, setAllAcademicYears] = useState([]);
+            const [classes, setClasses] = useState(['+2', '+1', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1']);
+            const [academicYear, setAcademicYear] = useState(() => urlParams.get('academicYear') || '');
+            const [settings, setSettings] = useState({
+                globalBaseFee: 200,
+                institutionName: 'Madrasa Fee Manager',
+                institutionPlace: '',
+                registerNumber: '',
+                logo: '',
+                receiptRequired: true
+            });
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            const isReadOnly = useMemo(() => {
+                const role = urlParams.get('role');
+                return (role === 'cashier' || role === 'collector');
+            }, [urlParams]);
+
+            const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '' });
+            const showAlert = (message, title = "Notice") => setAlertState({ isOpen: true, message, title });
+
+            useEffect(() => {
+                // 1. Settings & Config
+                const unsubConfig = db.doc('settings/config').onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        setSettings(prev => ({
+                            ...prev,
+                            globalBaseFee: Number(data.defaultFee || prev.globalBaseFee || 200),
+                            institutionName: data.appName || prev.institutionName || 'Madrasa Fee Manager',
+                            institutionPlace: data.appSubtitle || prev.institutionPlace || '',
+                            logo: data.logoUrl || prev.logo || '',
+                            receiptRequired: data.defaultReceiptMandatory !== false
+                        }));
+                    }
+                }, err => console.warn('Config notice:', err));
+
+                // 2. Academic Years & Classes
+                const unsubAcademic = db.doc('settings/academicYears').onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        const currentYear = data.currentYear || '';
+                        const years = data.years || [];
+                        const yearLabels = years.map(y => y.label || y.id).filter(Boolean);
+                        setAllAcademicYears(yearLabels);
+                        setAcademicYear(prev => prev || currentYear || yearLabels[0] || '');
+                        const activeRec = years.find(y => y.label === currentYear || y.status === 'active') || years[0];
+                        if (activeRec && Array.isArray(activeRec.classes) && activeRec.classes.length > 0) {
+                            setClasses(activeRec.classes);
+                        }
+                    }
+                }, err => console.warn('Academic years notice:', err));
+
+                // 3. Students Collection
+                const unsubStudents = db.collection('students').onSnapshot(snapshot => {
+                    const data = [];
+                    snapshot.forEach(doc => {
+                        const d = doc.data() || {};
+                        data.push({
+                            id: doc.id,
+                            ...d,
+                            name: d.name || d.studentName || 'Student',
+                            studentClass: d.class || d.studentClass || '-',
+                            adm: d.adm || d.admissionNo || d.profile?.admNo || '',
+                            uid: d.uid || d.samasthaId || d.profile?.samasthaId || '',
+                            gender: (d.gender === 'Female' || d.gender === 'F') ? 'F' : 'M',
+                            guardian: d.father || d.fatherName || d.guardian || '',
+                            mother: d.mother || d.motherName || '',
+                            phone: d.phone || d.mobile || d.fatherPhone || '',
+                            motherPhone: d.motherPhone || '',
+                            concessionFee: (d.concessionFee !== undefined && d.concessionFee !== null && d.concessionFee !== '') ? Number(d.concessionFee) : null,
+                            academicYear: d.academicYear || '',
+                            photo: d.photo || d.photoUrl || d.profilePhoto || d.profile?.photo || '',
+                            status: d.status || 'Active',
+                            dob: d.dob || d.dateOfBirth || d.profile?.dob || '',
+                            admDate: d.admDate || d.admissionDate || d.profile?.admDate || '',
+                            adhaar: d.adhaar || d.aadhaar || d.profile?.adhaar || '',
+                            address: d.address || d.permanentAddress || d.profile?.address || '',
+                            pendingArrears: Number(d.pendingArrears || 0),
+                            groupId: d.groupId || '',
+                            rawPayments: d.payments || {}
+                        });
+                    });
+                    setStudents(data);
+                    setLoading(false);
+                }, err => {
+                    console.error('Students error:', err);
+                    setError("Failed to load students data.");
+                    setLoading(false);
+                });
+
+                // 4. Student Groups (Sibling / Concession Groups)
+                const unsubGroups = db.collection('studentGroups').onSnapshot(snapshot => {
+                    const data = [];
+                    snapshot.forEach(doc => {
+                        const g = doc.data() || {};
+                        data.push({
+                            id: doc.id,
+                            name: g.name || 'Family Group',
+                            fee: Number(g.fee || 0),
+                            memberIds: Array.isArray(g.memberIds) ? g.memberIds : [],
+                            academicYear: g.academicYear || ''
+                        });
+                    });
+                    setStudentGroups(data);
+                }, err => console.warn('Groups notice:', err));
+
+                // 5. Payments Collection (Centralized Transactions)
+                const unsubPayments = db.collection('payments').onSnapshot(snapshot => {
+                    const data = [];
+                    snapshot.forEach(doc => {
+                        const p = doc.data() || {};
+                        data.push({
+                            id: doc.id,
+                            studentId: p.studentId || '',
+                            billingGroupId: p.billingGroupId || null,
+                            amount: Number(p.amount || 0),
+                            receiptNo: p.receiptNo || p.receipt || '',
+                            itemKey: p.itemKey || '',
+                            paymentDate: p.paymentDate || p.date || '',
+                            timestamp: p.timestamp || 0,
+                            academicYear: p.academicYear || '',
+                            collectedByName: p.collectedByName || p.collectedBy || 'Cashier',
+                            description: p.description || ''
+                        });
+                    });
+                    setPayments(data);
+                }, err => console.warn('Payments notice:', err));
+
+                return () => {
+                    unsubConfig();
+                    unsubAcademic();
+                    unsubStudents();
+                    unsubGroups();
+                    unsubPayments();
+                };
+            }, []);
+
+            // Dynamic Months Sequence
+            const dynamicMonths = useMemo(() => DEFAULT_ACADEMIC_MONTHS, []);
+
+            // Scope students to selected academic year (or all if not tagged)
+            const activeStudents = useMemo(() => {
+                if (!academicYear) return students;
+                const filtered = students.filter(s => !s.academicYear || s.academicYear === academicYear);
+                return filtered.length > 0 ? filtered : students;
+            }, [students, academicYear]);
+
+            // Sync dynamic classes if available
+            useEffect(() => {
+                if (activeStudents.length > 0) {
+                    const extracted = [...new Set(activeStudents.map(s => s.studentClass).filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+                    if (extracted.length > 0 && classes.length <= 1) {
+                        setClasses(extracted);
+                    }
+                }
+            }, [activeStudents]);
+
+            if (error) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                        <div className="bg-white border border-red-200 rounded-2xl p-6 max-w-md w-full shadow-lg text-center">
+                            <i className="fas fa-exclamation-circle text-4xl text-red-500 mb-3"></i>
+                            <h3 className="text-lg font-bold text-slate-800 mb-1">Database Connection Notice</h3>
+                            <p className="text-sm text-slate-600 mb-4">{error}</p>
+                            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs shadow hover:bg-blue-700 transition">Reload Page</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500 gap-3">
+                        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm font-bold tracking-wide">Loading Madrasa Fee System...</span>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex flex-col min-h-screen bg-slate-50 w-full">
+                    {/* Header bar if view mode is not restricted */}
+                    <header className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-40 shadow-sm flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow-sm">
+                                <i className="fas fa-receipt"></i>
+                            </div>
+                            <div>
+                                <h1 className="text-base font-extrabold text-slate-800 leading-tight">{settings.institutionName || 'Fee Management'}</h1>
+                                <p className="text-[11px] text-slate-500 font-medium">Single-Glance Student, Sibling & Fee Records</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-bold">
+                                <button onClick={() => setActiveTab('STUDENTS')} className={`px-3 py-1.5 rounded-lg transition ${activeTab === 'STUDENTS' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+                                    <i className="fas fa-users mr-1.5"></i> Students & Fees
+                                </button>
+                                <button onClick={() => setActiveTab('DASHBOARD')} className={`px-3 py-1.5 rounded-lg transition ${activeTab === 'DASHBOARD' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+                                    <i className="fas fa-chart-pie mr-1.5"></i> Overview
+                                </button>
+                                <button onClick={() => setActiveTab('FEE_HISTORY')} className={`px-3 py-1.5 rounded-lg transition ${activeTab === 'FEE_HISTORY' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+                                    <i className="fas fa-history mr-1.5"></i> Payment History
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-grow p-3 sm:p-5 w-full">
+                        {activeTab === 'STUDENTS' && (
+                            <StudentTab
+                                students={activeStudents}
+                                allStudents={students}
+                                studentGroups={studentGroups}
+                                payments={payments}
+                                settings={settings}
+                                dynamicMonths={dynamicMonths}
+                                showAlert={showAlert}
+                                CLASSES={classes}
+                                isReadOnly={isReadOnly}
+                                academicYear={academicYear}
+                                setAcademicYear={setAcademicYear}
+                                allAcademicYears={allAcademicYears}
+                            />
+                        )}
+
+                        {activeTab === 'DASHBOARD' && (
+                            <DashboardTab
+                                students={activeStudents}
+                                studentGroups={studentGroups}
+                                payments={payments}
+                                settings={settings}
+                                dynamicMonths={dynamicMonths}
+                                CLASSES={classes}
+                                academicYear={academicYear}
+                            />
+                        )}
+
+                        {activeTab === 'FEE_HISTORY' && (
+                            <FeeHistoryTab
+                                students={activeStudents}
+                                payments={payments}
+                                dynamicMonths={dynamicMonths}
+                                showAlert={showAlert}
+                            />
+                        )}
+                    </main>
+
+                    <CustomAlert
+                        isOpen={alertState.isOpen}
+                        title={alertState.title}
+                        message={alertState.message}
+                        onClose={() => setAlertState({ isOpen: false, title: '', message: '' })}
+                    />
+                </div>
+            );
+        };
+
+        // --- ENHANCED STUDENTS TAB COMPONENT (SINGLE GLANCE TABLE) ---
+        const StudentTab = ({ students, allStudents, studentGroups, payments, settings, dynamicMonths, showAlert, CLASSES, isReadOnly, academicYear, setAcademicYear, allAcademicYears }) => {
+            const [search, setSearch] = useState('');
+            const [classFilter, setClassFilter] = useState('');
+            const [classSort, setClassSort] = useState('CLASS_DESC');
+            const [secondarySort, setSecondarySort] = useState('NONE');
+            const [statusFilter, setStatusFilter] = useState('ALL');
+
+            const [selectedProfile, setSelectedProfile] = useState(null);
+            const [paymentModalData, setPaymentModalData] = useState(null);
+            const [groupModalStudent, setGroupModalStudent] = useState(null);
+
+            // Enrich each student with Group, Sibling, and Real-Time Payment Status
+            const enrichedStudents = useMemo(() => {
+                return students.map(student => {
+                    // 1. Group & Sibling Discovery
+                    const group = studentGroups.find(g => Array.isArray(g.memberIds) && g.memberIds.includes(student.id)) ||
+                                  (student.groupId ? studentGroups.find(g => g.id === student.groupId) : null);
+
+                    const siblings = group ? allStudents.filter(s => s.id !== student.id && group.memberIds?.includes(s.id)) : [];
+                    const allGroupMembers = group ? allStudents.filter(s => group.memberIds?.includes(s.id)) : [student];
+                    const isGrouped = siblings.length > 0;
+
+                    let monthlyFee = settings.globalBaseFee;
+                    let feeCategory = 'STANDARD';
+
+                    if (isGrouped && group.fee > 0) {
+                        monthlyFee = group.fee;
+                        feeCategory = 'GROUP_SIBLING';
+                    } else if (student.concessionFee !== null) {
+                        monthlyFee = student.concessionFee;
+                        feeCategory = 'CONCESSION';
+                    }
+
+                    // 2. Real-Time Payment Resolution for Dynamic Months
+                    const studentPayments = payments.filter(p => {
+                        if (academicYear && p.academicYear && p.academicYear !== academicYear) return false;
+                        return p.studentId === student.id || (group && p.billingGroupId === group.id);
+                    });
+
+                    const monthStatus = {};
+                    let totalPaid = 0;
+                    let totalDue = 0;
+
+                    dynamicMonths.forEach((month, idx) => {
+                        // Find matching transaction
+                        const matchedPay = studentPayments.find(p => {
+                            const keyMatch = matchMonthFromKey(p.itemKey);
+                            if (keyMatch && keyMatch === month) return true;
+                            if (p.description && matchMonthFromKey(p.description) === month) return true;
+                            return false;
+                        }) || (student.rawPayments && student.rawPayments[month]);
+
+                        if (matchedPay) {
+                            const amt = Number(matchedPay.amount || matchedPay.lastAmount || monthlyFee);
+                            const receipt = matchedPay.receiptNo || matchedPay.receipt || 'Paid';
+                            const date = matchedPay.paymentDate || matchedPay.date || (matchedPay.timestamp ? new Date(matchedPay.timestamp).toLocaleDateString('en-GB') : '-');
+                            const status = matchedPay.status || 'FULL';
+                            const bal = Number(matchedPay.balance || 0);
+
+                            monthStatus[month] = {
+                                isPaid: true,
+                                amount: amt,
+                                receipt,
+                                date,
+                                status,
+                                balance: bal,
+                                paymentId: matchedPay.id || null
+                            };
+                            totalPaid += amt;
+                        } else {
+                            monthStatus[month] = {
+                                isPaid: false,
+                                amount: 0,
+                                due: monthlyFee,
+                                receipt: '',
+                                date: '',
+                                status: 'DUE',
+                                balance: monthlyFee
+                            };
+                            totalDue += monthlyFee;
+                        }
+                    });
+
+                    return {
+                        ...student,
+                        group,
+                        groupId: group?.id || student.groupId || student.id,
+                        groupName: group?.name || 'Family Group',
+                        siblings,
+                        allGroupMembers,
+                        isGrouped,
+                        monthlyFee,
+                        feeCategory,
+                        monthStatus,
+                        totalPaid,
+                        totalDue
+                    };
+                });
+            }, [students, allStudents, studentGroups, payments, settings.globalBaseFee, dynamicMonths, academicYear]);
+
+            // Summary Metrics for Quick Glance Strip
+            const metrics = useMemo(() => {
+                const total = enrichedStudents.length;
+                const boys = enrichedStudents.filter(s => s.gender === 'M').length;
+                const girls = enrichedStudents.filter(s => s.gender === 'F').length;
+                const groupCount = new Set(enrichedStudents.filter(s => s.isGrouped).map(s => s.groupId)).size;
+                const groupedStudents = enrichedStudents.filter(s => s.isGrouped).length;
+                const concessionCount = enrichedStudents.filter(s => s.feeCategory === 'CONCESSION').length;
+                const collected = enrichedStudents.reduce((sum, s) => sum + s.totalPaid, 0);
+                const pending = enrichedStudents.reduce((sum, s) => sum + s.totalDue, 0);
+
+                return { total, boys, girls, groupCount, groupedStudents, concessionCount, collected, pending };
+            }, [enrichedStudents]);
+
+            // Filtered & Sorted Rows
+            const filteredStudents = useMemo(() => {
+                let list = [...enrichedStudents];
+
+                if (search.trim()) {
+                    const q = search.trim().toLowerCase();
+                    list = list.filter(s =>
+                        s.name.toLowerCase().includes(q) ||
+                        s.adm.toLowerCase().includes(q) ||
+                        s.uid.toLowerCase().includes(q) ||
+                        s.guardian.toLowerCase().includes(q) ||
+                        s.phone.includes(q) ||
+                        (s.siblings && s.siblings.some(sib => sib.name.toLowerCase().includes(q))) ||
+                        Object.values(s.monthStatus).some(m => m.receipt.toLowerCase().includes(q))
+                    );
+                }
+
+                if (classFilter) {
+                    list = list.filter(s => s.studentClass === classFilter);
+                }
+
+                if (statusFilter === 'GROUPED') {
+                    list = list.filter(s => s.isGrouped);
+                } else if (statusFilter === 'CONCESSION') {
+                    list = list.filter(s => s.feeCategory === 'CONCESSION');
+                } else if (statusFilter === 'FULLY_PAID') {
+                    list = list.filter(s => s.totalDue === 0);
+                } else if (statusFilter === 'HAS_DUES') {
+                    list = list.filter(s => s.totalDue > 0);
+                }
+
+                const classIndex = (cls) => {
+                    const idx = CLASSES.indexOf(cls);
+                    return idx === -1 ? 999 : idx;
+                };
+
+                list.sort((a, b) => {
+                    if (classSort === 'CLASS_DESC') {
+                        const diff = classIndex(a.studentClass) - classIndex(b.studentClass);
+                        if (diff !== 0) return diff;
+                    } else if (classSort === 'CLASS_ASC') {
+                        const diff = classIndex(b.studentClass) - classIndex(a.studentClass);
+                        if (diff !== 0) return diff;
+                    }
+
+                    if (secondarySort === 'ADM_NO') {
+                        return (parseInt(a.adm) || 0) - (parseInt(b.adm) || 0);
+                    } else if (secondarySort === 'NAME_ASC') {
+                        return a.name.localeCompare(b.name);
+                    } else if (secondarySort === 'DUES_DESC') {
+                        return b.totalDue - a.totalDue;
+                    }
+
+                    return a.name.localeCompare(b.name);
+                });
+
+                return list;
+            }, [enrichedStudents, search, classFilter, statusFilter, classSort, secondarySort, CLASSES]);
+
+            // PDF Table Export
+            const exportPdf = () => {
+                if (!window.jspdf?.jsPDF) return showAlert('PDF generation library is loading, please try again.', 'PDF Notice');
+                const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+                const title = `${settings.institutionName || 'Madrasa Fee System'} - Student Fee Ledger`;
+                const subtitle = `Academic Year: ${academicYear || 'All'} | Total Students: ${filteredStudents.length}`;
+
+                const columns = ['#', 'Adm', 'Class', 'Student Name', 'Guardian', 'Mobile', 'Fee Type', 'Fee/Mo', ...dynamicMonths, 'Paid', 'Due'];
+                const rows = filteredStudents.map((s, idx) => {
+                    const monthCols = dynamicMonths.map(m => s.monthStatus[m]?.isPaid ? `Paid (₹${s.monthStatus[m].amount})` : '-');
+                    return [
+                        idx + 1,
+                        s.adm || '-',
+                        s.studentClass,
+                        s.name,
+                        s.guardian || '-',
+                        s.phone || '-',
+                        s.isGrouped ? `Group (${s.siblings.length + 1})` : (s.feeCategory === 'CONCESSION' ? 'Concession' : 'Standard'),
+                        `₹${s.monthlyFee}`,
+                        ...monthCols,
+                        `₹${s.totalPaid}`,
+                        `₹${s.totalDue}`
+                    ];
+                });
+
+                doc.setFontSize(14);
+                doc.text(title, 20, 25);
+                doc.setFontSize(9);
+                doc.setTextColor(100);
+                doc.text(subtitle, 20, 40);
+
+                doc.autoTable({
+                    head: [columns],
+                    body: rows,
+                    startY: 50,
+                    styles: { fontSize: 7, cellPadding: 2 },
+                    headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
+                    alternateRowStyles: { fillColor: [248, 250, 252] }
+                });
+
+                doc.save(`fee-ledger-${academicYear || 'report'}.pdf`);
+            };
+
+            // CSV Export
+            const exportCsv = () => {
+                const headers = ['Sl No', 'Adm No', 'Class', 'Student Name', 'Gender', 'Guardian', 'Mobile', 'Fee Type', 'Monthly Fee', ...dynamicMonths, 'Total Paid', 'Total Due'];
+                const rows = filteredStudents.map((s, idx) => {
+                    const monthCols = dynamicMonths.map(m => s.monthStatus[m]?.isPaid ? `Paid:${s.monthStatus[m].amount}` : 'Unpaid');
+                    return [
+                        idx + 1,
+                        `"${s.adm || ''}"`,
+                        `"${s.studentClass}"`,
+                        `"${s.name}"`,
+                        s.gender,
+                        `"${s.guardian}"`,
+                        `"${s.phone}"`,
+                        s.feeCategory,
+                        s.monthlyFee,
+                        ...monthCols,
+                        s.totalPaid,
+                        s.totalDue
+                    ];
+                });
+
+                const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `student-fee-matrix-${academicYear || 'all'}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            };
+
+            return (
+                <div className="space-y-4">
+                    {/* Top Quick Metrics Summary Strip */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                            <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase mb-1">
+                                <span>Students</span>
+                                <i className="fas fa-user-graduate text-blue-500"></i>
+                            </div>
+                            <div className="text-2xl font-black text-slate-800">{metrics.total}</div>
+                            <div className="text-[11px] text-slate-500 font-semibold mt-0.5">Boys: {metrics.boys} • Girls: {metrics.girls}</div>
+                        </div>
+
+                        <div className="bg-white border border-amber-200 bg-amber-50/30 rounded-xl p-3.5 shadow-sm">
+                            <div className="flex items-center justify-between text-amber-700 text-xs font-bold uppercase mb-1">
+                                <span>Sibling Groups</span>
+                                <i className="fas fa-users-viewfinder text-amber-500"></i>
+                            </div>
+                            <div className="text-2xl font-black text-amber-800">{metrics.groupCount} <span className="text-xs font-bold text-amber-600">groups</span></div>
+                            <div className="text-[11px] text-amber-700 font-semibold mt-0.5">{metrics.groupedStudents} total siblings linked</div>
+                        </div>
+
+                        <div className="bg-white border border-emerald-200 bg-emerald-50/30 rounded-xl p-3.5 shadow-sm">
+                            <div className="flex items-center justify-between text-emerald-700 text-xs font-bold uppercase mb-1">
+                                <span>Concessions</span>
+                                <i className="fas fa-hand-holding-dollar text-emerald-500"></i>
+                            </div>
+                            <div className="text-2xl font-black text-emerald-800">{metrics.concessionCount}</div>
+                            <div className="text-[11px] text-emerald-700 font-semibold mt-0.5">Individual fee concessions</div>
+                        </div>
+
+                        <div className="bg-white border border-green-200 bg-green-50/40 rounded-xl p-3.5 shadow-sm">
+                            <div className="flex items-center justify-between text-green-700 text-xs font-bold uppercase mb-1">
+                                <span>Total Collected</span>
+                                <i className="fas fa-check-circle text-green-500"></i>
+                            </div>
+                            <div className="text-2xl font-black text-green-800">{formatCurrency(metrics.collected)}</div>
+                            <div className="text-[11px] text-green-700 font-semibold mt-0.5">Verified payments received</div>
+                        </div>
+
+                        <div className="bg-white border border-rose-200 bg-rose-50/40 rounded-xl p-3.5 shadow-sm col-span-2 sm:col-span-1">
+                            <div className="flex items-center justify-between text-rose-700 text-xs font-bold uppercase mb-1">
+                                <span>Total Pending</span>
+                                <i className="fas fa-clock text-rose-500"></i>
+                            </div>
+                            <div className="text-2xl font-black text-rose-700">{formatCurrency(metrics.pending)}</div>
+                            <div className="text-[11px] text-rose-600 font-semibold mt-0.5">Outstanding balance to collect</div>
+                        </div>
+                    </div>
+
+                    {/* Filter and Action Controls Bar */}
+                    <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 max-w-md relative">
+                            <i className="fas fa-search absolute left-3 text-slate-400 text-sm"></i>
+                            <input
+                                type="text"
+                                placeholder="Search by name, adm, phone, guardian or receipt..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="w-full pl-9 pr-3 py-2 text-xs font-medium border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            {search && (
+                                <button onClick={() => setSearch('')} className="absolute right-2.5 text-slate-400 hover:text-slate-600 text-xs">
+                                    <i className="fas fa-times"></i>
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Academic Year Selector */}
+                            <div className="flex items-center bg-slate-100 rounded-lg border border-slate-200 px-2 py-1 text-xs">
+                                <span className="text-slate-500 font-bold mr-1.5"><i className="fas fa-calendar-alt text-slate-400"></i> Year:</span>
+                                <select
+                                    value={academicYear}
+                                    onChange={e => setAcademicYear(e.target.value)}
+                                    className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
+                                >
+                                    <option value="">All Academic Years</option>
+                                    {allAcademicYears.map(yr => (
+                                        <option key={yr} value={yr}>{yr}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Class Filter */}
+                            <select
+                                value={classFilter}
+                                onChange={e => setClassFilter(e.target.value)}
+                                className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
+                            >
+                                <option value="">All Classes</option>
+                                {CLASSES.map(cls => (
+                                    <option key={cls} value={cls}>Class {cls}</option>
+                                ))}
+                            </select>
+
+                            {/* Fee Category Filter */}
+                            <select
+                                value={statusFilter}
+                                onChange={e => setStatusFilter(e.target.value)}
+                                className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-blue-700 bg-blue-50/50 outline-none cursor-pointer"
+                            >
+                                <option value="ALL">Category: All Students</option>
+                                <option value="GROUPED">Sibling Groups Only</option>
+                                <option value="CONCESSION">Concessions Only</option>
+                                <option value="HAS_DUES">Pending Dues Only</option>
+                                <option value="FULLY_PAID">Fully Paid</option>
+                            </select>
+
+                            {/* Sort Filter */}
+                            <select
+                                value={classSort}
+                                onChange={e => setClassSort(e.target.value)}
+                                className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
+                            >
+                                <option value="CLASS_DESC">Order: +2 to 1</option>
+                                <option value="CLASS_ASC">Order: 1 to +2</option>
+                            </select>
+
+                            <select
+                                value={secondarySort}
+                                onChange={e => setSecondarySort(e.target.value)}
+                                className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-white outline-none cursor-pointer"
+                            >
+                                <option value="NONE">Sort: Default</option>
+                                <option value="NAME_ASC">Name (A - Z)</option>
+                                <option value="ADM_NO">Admission No</option>
+                                <option value="DUES_DESC">Highest Dues First</option>
+                            </select>
+
+                            <button
+                                onClick={() => { setSearch(''); setClassFilter(''); setStatusFilter('ALL'); setClassSort('CLASS_DESC'); setSecondarySort('NONE'); }}
+                                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold hover:bg-slate-100 transition"
+                                title="Reset all filters"
+                            >
+                                <i className="fas fa-undo"></i>
+                            </button>
+
+                            <div className="h-5 border-r border-slate-200 mx-1 hidden sm:block"></div>
+
+                            <button onClick={exportCsv} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                                <i className="fas fa-file-csv text-emerald-600"></i> CSV
+                            </button>
+                            <button onClick={exportPdf} className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                                <i className="fas fa-file-pdf"></i> PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Single-Glance Comprehensive Ledger Table */}
+                    <div className="table-container border border-slate-200 rounded-xl bg-white shadow-sm overflow-x-auto">
+                        <table className="min-w-full text-xs text-left border-collapse">
+                            <thead className="student-table-head text-[11px] font-extrabold text-slate-600 uppercase tracking-wider border-b border-slate-200 shadow-sm">
+                                <tr>
+                                    <th className="px-2.5 py-3 w-10 border-r border-slate-200 text-center sticky-col-1">#</th>
+                                    <th className="px-2.5 py-3 w-16 border-r border-slate-200 text-center sticky-col-2">Adm</th>
+                                    <th className="px-2.5 py-3 w-16 border-r border-slate-200 text-center sticky-col-3">Class</th>
+                                    <th className="px-3 py-3 border-r border-slate-200 min-w-[200px]">Student Name</th>
+                                    <th className="px-3 py-3 border-r border-slate-200 min-w-[180px]">Guardian & Phone</th>
+                                    <th className="px-3 py-3 border-r border-slate-200 min-w-[210px] bg-amber-50/40 text-amber-900">
+                                        <i className="fas fa-users-viewfinder mr-1"></i> Sibling / Group / Fee
+                                    </th>
+                                    {dynamicMonths.map(m => (
+                                        <th key={m} className="px-2 py-3 text-center border-r border-slate-200 min-w-[105px]">
+                                            {m}
+                                        </th>
+                                    ))}
+                                    <th className="px-3 py-3 text-right border-r border-slate-200 min-w-[90px] bg-green-50/50 text-green-800">Paid</th>
+                                    <th className="px-3 py-3 text-right border-r border-slate-200 min-w-[90px] bg-rose-50/50 text-rose-800">Pending</th>
+                                    <th className="px-2.5 py-3 text-center min-w-[70px]">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredStudents.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={8 + dynamicMonths.length} className="text-center py-12 text-slate-400">
+                                            <i className="fas fa-folder-open text-3xl mb-2 block"></i>
+                                            <span className="font-semibold text-sm">No student records match the selected filters.</span>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredStudents.map((s, idx) => {
+                                        return (
+                                            <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                                                {/* # */}
+                                                <td className="px-2.5 py-2.5 text-center text-slate-400 font-bold border-r border-slate-200 sticky-col-1">
+                                                    {idx + 1}
+                                                </td>
+
+                                                {/* Adm No */}
+                                                <td className="px-2.5 py-2.5 text-center font-bold text-slate-700 border-r border-slate-200 sticky-col-2">
+                                                    <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono text-[10px] font-black border border-slate-200">
+                                                        {s.adm || '-'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Class */}
+                                                <td className="px-2.5 py-2.5 text-center font-bold text-slate-800 border-r border-slate-200 sticky-col-3">
+                                                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-extrabold text-[11px] border border-blue-100">
+                                                        {s.studentClass}
+                                                    </span>
+                                                </td>
+
+                                                {/* Student Name & Avatar */}
+                                                <td className="px-3 py-2.5 border-r border-slate-200">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0 flex items-center justify-center font-bold text-slate-600 shadow-inner">
+                                                            {s.photo ? (
+                                                                <img src={s.photo} alt={s.name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <span>{s.name ? s.name.charAt(0).toUpperCase() : 'S'}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <button
+                                                                    onClick={() => setSelectedProfile(s)}
+                                                                    className="font-bold text-slate-800 hover:text-blue-600 transition text-left truncate text-xs hover:underline"
+                                                                    title="Click to view full 15-field profile"
+                                                                >
+                                                                    {s.name}
+                                                                </button>
+                                                                {s.gender === 'M' ? (
+                                                                    <span className="text-[10px] text-blue-600 font-extrabold bg-blue-50 px-1 rounded border border-blue-100" title="Male">M</span>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-pink-600 font-extrabold bg-pink-50 px-1 rounded border border-pink-100" title="Female">F</span>
+                                                                )}
+                                                            </div>
+                                                            {s.uid && (
+                                                                <div className="text-[10px] text-slate-400 font-mono truncate">UID: {s.uid}</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* Guardian & Phone */}
+                                                <td className="px-3 py-2.5 border-r border-slate-200">
+                                                    <div className="font-semibold text-slate-800 text-xs truncate max-w-[170px]" title={s.guardian}>
+                                                        {s.guardian || '-'}
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono mt-0.5">
+                                                        <span>{s.phone || '-'}</span>
+                                                        {s.phone && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    navigator.clipboard?.writeText(s.phone);
+                                                                    showAlert(`Phone number ${s.phone} copied!`, "Copied");
+                                                                }}
+                                                                className="text-slate-400 hover:text-slate-600"
+                                                                title="Copy phone"
+                                                            >
+                                                                <i className="fas fa-copy text-[10px]"></i>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* Sibling / Group / Fee Column (At a glance!) */}
+                                                <td className="px-3 py-2.5 border-r border-slate-200 bg-amber-50/20">
+                                                    {s.isGrouped ? (
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center justify-between gap-1">
+                                                                <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-bold text-[10px] border border-amber-300">
+                                                                    <i className="fas fa-link text-[9px]"></i> Family ({s.siblings.length + 1} Siblings)
+                                                                </span>
+                                                                <span className="font-black text-amber-900 text-xs">
+                                                                    ₹{s.monthlyFee}/mo
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-500 line-clamp-1" title={s.siblings.map(sib => `${sib.name} (Cl ${sib.studentClass})`).join(', ')}>
+                                                                <span className="font-bold text-slate-600">Siblings:</span> {s.siblings.map(sib => `${sib.name} (${sib.studentClass})`).join(', ')}
+                                                            </div>
+                                                        </div>
+                                                    ) : s.feeCategory === 'CONCESSION' ? (
+                                                        <div>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-300">
+                                                                    Concession
+                                                                </span>
+                                                                <span className="font-black text-emerald-900 text-xs">₹{s.monthlyFee}/mo</span>
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Special approved fee</div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-slate-600 font-semibold text-[11px]">Standard</span>
+                                                            <span className="font-bold text-slate-700 text-xs">₹{s.monthlyFee}/mo</span>
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Dynamic Months Grid */}
+                                                {dynamicMonths.map(month => {
+                                                    const stat = s.monthStatus[month];
+                                                    return (
+                                                        <td
+                                                            key={month}
+                                                            onClick={() => setPaymentModalData({ student: s, month, stat })}
+                                                            className={`px-1.5 py-1.5 border-r border-slate-200 text-center cursor-pointer transition-colors ${stat.isPaid ? 'bg-emerald-50/50 hover:bg-emerald-100/70' : 'bg-rose-50/20 hover:bg-rose-100/50'}`}
+                                                            title={stat.isPaid ? `Paid: ₹${stat.amount} | Rec: ${stat.receipt} | Click to view` : `Due: ₹${stat.due} | Click to record`}
+                                                        >
+                                                            {stat.isPaid ? (
+                                                                <div className="rounded-lg bg-emerald-100/90 border border-emerald-300 p-1 text-emerald-900 leading-tight">
+                                                                    <div className="font-black text-[10px] text-emerald-800 flex items-center justify-center gap-0.5">
+                                                                        <i className="fas fa-check text-[9px]"></i> ₹{stat.amount}
+                                                                    </div>
+                                                                    <div className="text-[9px] font-mono text-emerald-700 truncate" title={stat.receipt}>
+                                                                        R:{stat.receipt}
+                                                                    </div>
+                                                                    <div className="text-[8px] text-emerald-600 font-medium">
+                                                                        {stat.date}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="rounded-lg border border-dashed border-rose-200 bg-rose-50/60 p-1 text-rose-700 leading-tight">
+                                                                    <div className="text-[10px] font-bold">Unpaid</div>
+                                                                    <div className="text-[9px] font-mono text-rose-500">₹{stat.due}</div>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    );
+                                                })}
+
+                                                {/* Total Paid */}
+                                                <td className="px-3 py-2.5 text-right font-black text-emerald-700 border-r border-slate-200 bg-green-50/30 text-xs">
+                                                    {formatCurrency(s.totalPaid)}
+                                                </td>
+
+                                                {/* Total Pending */}
+                                                <td className={`px-3 py-2.5 text-right font-black border-r border-slate-200 text-xs ${s.totalDue > 0 ? 'text-rose-600 bg-rose-50/30' : 'text-slate-400'}`}>
+                                                    {s.totalDue > 0 ? formatCurrency(s.totalDue) : '₹0'}
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="px-2 py-2.5 text-center">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button
+                                                            onClick={() => setSelectedProfile(s)}
+                                                            className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-xs transition"
+                                                            title="View full 15-field profile"
+                                                        >
+                                                            <i className="fas fa-id-card"></i>
+                                                        </button>
+                                                        {!isReadOnly && (
+                                                            <button
+                                                                onClick={() => setGroupModalStudent(s)}
+                                                                className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center text-xs transition"
+                                                                title="Manage Sibling Group"
+                                                            >
+                                                                <i className="fas fa-users-cog"></i>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Modals */}
+                    {selectedProfile && (
+                        <StudentComprehensiveProfileModal
+                            student={selectedProfile}
+                            onClose={() => setSelectedProfile(null)}
+                            showAlert={showAlert}
+                        />
+                    )}
+
+                    {paymentModalData && (
+                        <FeePaymentModal
+                            data={paymentModalData}
+                            academicYear={academicYear}
+                            onClose={() => setPaymentModalData(null)}
+                            showAlert={showAlert}
+                            isReadOnly={isReadOnly}
+                        />
+                    )}
+
+                    {groupModalStudent && (
+                        <SiblingGroupModal
+                            student={groupModalStudent}
+                            allStudents={allStudents}
+                            onClose={() => setGroupModalStudent(null)}
+                            showAlert={showAlert}
+                            academicYear={academicYear}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        // --- 15-FIELD COMPREHENSIVE STUDENT PROFILE VIEW MODAL ---
+        const StudentComprehensiveProfileModal = ({ student, onClose, showAlert }) => {
+            if (!student) return null;
+            const prof = student.profile || {};
+
+            return (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white px-6 py-4 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg">
+                                    <i className="fas fa-id-card"></i>
+                                </div>
+                                <div>
+                                    <h3 className="font-extrabold text-base leading-tight">Comprehensive Student Profile</h3>
+                                    <p className="text-xs text-blue-100">All 15 defined fields and academic records</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="text-white/80 hover:text-white transition text-lg">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+                            {/* Top Hero / Avatar Bar */}
+                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                <div className="w-20 h-20 rounded-full border-2 border-white shadow-md overflow-hidden bg-slate-200 shrink-0 flex items-center justify-center text-2xl font-black text-slate-500">
+                                    {student.photo ? (
+                                        <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span>{student.name.charAt(0)}</span>
+                                    )}
+                                </div>
+                                <div className="text-center sm:text-left flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
+                                        <h2 className="text-lg font-black text-slate-800 uppercase">{student.name}</h2>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${student.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                            {student.status || 'Active'}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs font-semibold text-slate-500 space-x-2">
+                                        <span>Class: <strong className="text-slate-800">{student.studentClass}</strong></span>
+                                        <span>•</span>
+                                        <span>Gender: <strong className="text-slate-800">{student.gender === 'M' ? 'Male' : 'Female'}</strong></span>
+                                        <span>•</span>
+                                        <span>Adm No: <strong className="text-slate-800">{student.adm || '-'}</strong></span>
+                                    </div>
+
+                                    {student.isGrouped && (
+                                        <div className="mt-2.5 inline-flex items-center gap-1.5 bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-lg text-xs font-bold">
+                                            <i className="fas fa-users text-amber-600"></i>
+                                            <span>Family Group: <strong>{student.siblings.length + 1} Siblings</strong> (Monthly: ₹{student.monthlyFee})</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 15 Defined Fields Grid */}
+                            <div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">All 15 Defined Profile Fields</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                    {/* 1. Photo */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">1. Photo Status</span>
+                                        <span className="font-bold text-slate-800">{student.photo ? 'Uploaded & Verified' : 'Not Uploaded'}</span>
+                                    </div>
+
+                                    {/* 2. Class */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">2. Class</span>
+                                        <span className="font-bold text-slate-800">Class {student.studentClass}</span>
+                                    </div>
+
+                                    {/* 3. ID / UID */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">3. ID / Samastha UID</span>
+                                        <span className="font-mono font-bold text-slate-800">{student.uid || '-'}</span>
+                                    </div>
+
+                                    {/* 4. Student Name */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">4. Student Full Name</span>
+                                        <span className="font-bold text-slate-800">{student.name}</span>
+                                    </div>
+
+                                    {/* 5. Father's Name */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">5. Father's Name</span>
+                                        <span className="font-bold text-slate-800">{student.guardian || prof.father || '-'}</span>
+                                    </div>
+
+                                    {/* 6. Mother's Name */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">6. Mother's Name</span>
+                                        <span className="font-bold text-slate-800">{student.mother || prof.mother || '-'}</span>
+                                    </div>
+
+                                    {/* 7. Gender */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">7. Gender</span>
+                                        <span className="font-bold text-slate-800">{student.gender === 'M' ? 'Male (Boy)' : 'Female (Girl)'}</span>
+                                    </div>
+
+                                    {/* 8. Admission No */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">8. Admission Number (Adm. No)</span>
+                                        <span className="font-mono font-bold text-slate-800">{student.adm || '-'}</span>
+                                    </div>
+
+                                    {/* 9. Date of Birth */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">9. Date of Birth (DOB)</span>
+                                        <span className="font-bold text-slate-800">{student.dob || prof.dob || '-'}</span>
+                                    </div>
+
+                                    {/* 10. Date of Admission */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">10. Date of Admission</span>
+                                        <span className="font-bold text-slate-800">{student.admDate || prof.admDate || '-'}</span>
+                                    </div>
+
+                                    {/* 11. Student Status */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">11. Student Status</span>
+                                        <span className="font-bold text-slate-800">{student.status || 'Active'}</span>
+                                    </div>
+
+                                    {/* 12. Aadhaar Number */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">12. Aadhaar Number</span>
+                                        <span className="font-mono font-bold text-slate-800">{student.adhaar || prof.adhaar || '-'}</span>
+                                    </div>
+
+                                    {/* 13. Father's Phone */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">13. Father's Phone</span>
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-mono font-bold text-slate-800">{student.phone || '-'}</span>
+                                            {student.phone && (
+                                                <button onClick={() => { navigator.clipboard?.writeText(student.phone); showAlert('Phone copied!', 'Copied'); }} className="text-blue-600 hover:text-blue-800">
+                                                    <i className="fas fa-copy"></i>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 14. Mother's Phone */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">14. Mother's Phone</span>
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-mono font-bold text-slate-800">{student.motherPhone || prof.motherPhone || '-'}</span>
+                                            {student.motherPhone && (
+                                                <button onClick={() => { navigator.clipboard?.writeText(student.motherPhone); showAlert('Phone copied!', 'Copied'); }} className="text-blue-600 hover:text-blue-800">
+                                                    <i className="fas fa-copy"></i>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 15. Permanent Address */}
+                                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 sm:col-span-2">
+                                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">15. Permanent Address</span>
+                                        <span className="font-medium text-slate-800 leading-relaxed">{student.address || prof.address || '-'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end shrink-0">
+                            <button onClick={onClose} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-xs shadow-sm transition">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- FEE PAYMENT / RECEIPT RECORDING MODAL ---
+        const FeePaymentModal = ({ data, academicYear, onClose, showAlert, isReadOnly }) => {
+            const { student, month, stat } = data;
+            const [amount, setAmount] = useState(stat.isPaid ? stat.amount : student.monthlyFee);
+            const [receiptNo, setReceiptNo] = useState(stat.receipt || '');
+            const [paymentDate, setPaymentDate] = useState(stat.date && stat.date !== '-' ? stat.date : new Date().toISOString().split('T')[0]);
+            const [saving, setSaving] = useState(false);
+
+            const handleSave = async (e) => {
+                e.preventDefault();
+                if (isReadOnly) return showAlert('Read-only view mode.', 'Notice');
+                const amt = Number(amount);
+                if (isNaN(amt) || amt <= 0) return showAlert('Please enter a valid payment amount.', 'Invalid Amount');
+                if (!receiptNo.trim()) return showAlert('Receipt number is required.', 'Missing Receipt');
+
+                setSaving(true);
+                try {
+                    const cleanReceipt = receiptNo.trim().toUpperCase();
+                    const batch = db.batch();
+
+                    // 1. Add to central payments collection
+                    const paymentRef = db.collection('payments').doc();
+                    const paymentPayload = {
+                        studentId: student.id,
+                        billingGroupId: student.isGrouped ? student.groupId : null,
+                        amount: amt,
+                        receiptNo: cleanReceipt,
+                        itemKey: month,
+                        paymentDate,
+                        timestamp: Date.now(),
+                        academicYear: academicYear || student.academicYear || '',
+                        classLabel: student.studentClass,
+                        collectedByName: 'Cashier',
+                        description: `Monthly Fee - ${month}`
+                    };
+                    batch.set(paymentRef, paymentPayload);
+
+                    // 2. Update student doc embedded map for backwards compatibility
+                    const studentRef = db.collection('students').doc(student.id);
+                    batch.update(studentRef, {
+                        [`payments.${month}`]: {
+                            amount: amt,
+                            receipt: cleanReceipt,
+                            date: paymentDate,
+                            status: 'FULL',
+                            timestamp: new Date().toISOString()
+                        }
+                    });
+
+                    // 3. If part of sibling group, replicate payment indicator if family-wide
+                    if (student.isGrouped && student.siblings.length > 0) {
+                        student.siblings.forEach(sib => {
+                            batch.update(db.collection('students').doc(sib.id), {
+                                [`payments.${month}`]: {
+                                    amount: amt,
+                                    receipt: cleanReceipt,
+                                    date: paymentDate,
+                                    status: 'FULL',
+                                    timestamp: new Date().toISOString()
+                                }
+                            });
+                        });
+                    }
+
+                    await batch.commit();
+                    showAlert(`Fee for ${month} recorded successfully (Receipt: ${cleanReceipt})`, 'Saved');
+                    onClose();
+                } catch (err) {
+                    console.error('Payment save error:', err);
+                    showAlert('Failed to record payment.', 'Error');
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-150">
+                        <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-5 py-4 flex items-center justify-between">
+                            <div>
+                                <h3 className="font-extrabold text-base leading-tight">Monthly Fee - {month}</h3>
+                                <p className="text-xs text-emerald-100">{student.name} • Class {student.studentClass}</p>
+                            </div>
+                            <button onClick={onClose} className="text-white/80 hover:text-white transition text-lg">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSave} className="p-5 space-y-4">
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+                                <div className="flex justify-between text-slate-600">
+                                    <span>Applicable Monthly Fee:</span>
+                                    <strong className="text-slate-800">₹{student.monthlyFee}</strong>
+                                </div>
+                                <div className="flex justify-between text-slate-600">
+                                    <span>Category:</span>
+                                    <strong className="text-slate-800">{student.isGrouped ? 'Sibling Group' : (student.feeCategory === 'CONCESSION' ? 'Concession' : 'Standard')}</strong>
+                                </div>
+                                {stat.isPaid && (
+                                    <div className="flex justify-between text-emerald-700 font-bold border-t pt-1 mt-1">
+                                        <span>Current Status:</span>
+                                        <span>Paid (Receipt #{stat.receipt})</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Receipt Number *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    disabled={isReadOnly}
+                                    value={receiptNo}
+                                    onChange={e => setReceiptNo(e.target.value)}
+                                    placeholder="e.g. 1042"
+                                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-bold uppercase outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Amount Paid (₹) *</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="1"
+                                        disabled={isReadOnly}
+                                        value={amount}
+                                        onChange={e => setAmount(e.target.value)}
+                                        className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-black outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Date</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        disabled={isReadOnly}
+                                        value={paymentDate}
+                                        onChange={e => setPaymentDate(e.target.value)}
+                                        className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                                <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-200 rounded-lg font-bold text-xs text-slate-600 hover:bg-slate-50 transition">
+                                    Cancel
+                                </button>
+                                {!isReadOnly && (
+                                    <button type="submit" disabled={saving} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50">
+                                        {saving ? 'Saving...' : 'Record Payment'}
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- SIBLING GROUP / FAMILY CONCESSION MANAGEMENT MODAL ---
+        const SiblingGroupModal = ({ student, allStudents, onClose, showAlert, academicYear }) => {
+            const [groupFee, setGroupFee] = useState(student.group?.fee || student.monthlyFee || 350);
+            const [groupName, setGroupName] = useState(student.group?.name || `${student.guardian || student.name}'s Family`);
+            const [memberIds, setMemberIds] = useState(student.group?.memberIds || [student.id, ...student.siblings.map(s => s.id)]);
+            const [searchCls, setSearchCls] = useState('');
+            const [searchName, setSearchName] = useState('');
+            const [saving, setSaving] = useState(false);
+
+            const activeMembers = allStudents.filter(s => memberIds.includes(s.id));
+            const availableCandidates = allStudents.filter(s =>
+                !memberIds.includes(s.id) &&
+                (!searchCls || s.studentClass === searchCls) &&
+                (!searchName || s.name.toLowerCase().includes(searchName.toLowerCase()))
+            );
+
+            const addCandidate = (cand) => {
+                setMemberIds(prev => [...prev, cand.id]);
+            };
+
+            const removeCandidate = (id) => {
+                if (id === student.id) return showAlert('Cannot remove primary student from group.', 'Notice');
+                setMemberIds(prev => prev.filter(mId => mId !== id));
+            };
+
+            const handleSave = async () => {
+                setSaving(true);
+                try {
+                    const batch = db.batch();
+                    const feeVal = Number(groupFee) || 0;
+
+                    if (memberIds.length > 1) {
+                        const groupId = student.group?.id || db.collection('studentGroups').doc().id;
+                        const groupRef = db.collection('studentGroups').doc(groupId);
+
+                        batch.set(groupRef, {
+                            id: groupId,
+                            name: groupName.trim(),
+                            fee: feeVal,
+                            memberIds: memberIds,
+                            academicYear: academicYear || student.academicYear || '',
+                            updatedAt: Date.now()
+                        }, { merge: true });
+
+                        memberIds.forEach(mId => {
+                            batch.update(db.collection('students').doc(mId), {
+                                groupId: groupId
+                            });
+                        });
+                    } else {
+                        // Dissolve group if only 1 student left
+                        if (student.group?.id) {
+                            batch.delete(db.collection('studentGroups').doc(student.group.id));
+                        }
+                        batch.update(db.collection('students').doc(student.id), {
+                            groupId: ''
+                        });
+                    }
+
+                    await batch.commit();
+                    showAlert('Sibling group configuration updated.', 'Success');
+                    onClose();
+                } catch (err) {
+                    console.error('Group save error:', err);
+                    showAlert('Failed to save sibling group.', 'Error');
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
+                        <div className="bg-gradient-to-r from-amber-600 to-yellow-600 text-white px-5 py-4 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <i className="fas fa-users-viewfinder text-xl"></i>
+                                <div>
+                                    <h3 className="font-extrabold text-base leading-tight">Sibling & Family Concession Setup</h3>
+                                    <p className="text-xs text-amber-100">Link brothers and sisters for combined monthly fee</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="text-white/80 hover:text-white transition text-lg">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Group / Family Name</label>
+                                    <input
+                                        type="text"
+                                        value={groupName}
+                                        onChange={e => setGroupName(e.target.value)}
+                                        className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Combined Monthly Fee (₹)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={groupFee}
+                                        onChange={e => setGroupFee(e.target.value)}
+                                        className="w-full p-2.5 border border-slate-200 rounded-lg text-sm font-black outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Linked Siblings List */}
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-xs font-extrabold uppercase text-slate-500">Linked Students ({activeMembers.length})</span>
+                                    <span className="text-[11px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">₹{groupFee}/mo Total</span>
+                                </div>
+                                <div className="space-y-2 max-h-44 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
+                                    {activeMembers.map(m => (
+                                        <div key={m.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg p-2 text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-slate-800">{m.name}</span>
+                                                <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-1.5 py-0.5 rounded">Cl {m.studentClass}</span>
+                                                {m.id === student.id && (
+                                                    <span className="text-[9px] bg-blue-50 text-blue-700 font-black px-1.5 py-0.2 rounded border border-blue-100">Primary</span>
+                                                )}
+                                            </div>
+                                            {m.id !== student.id && (
+                                                <button onClick={() => removeCandidate(m.id)} className="text-red-500 hover:text-red-700 text-xs">
+                                                    <i className="fas fa-trash"></i>
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Add More Siblings Picker */}
+                            <div className="border-t border-slate-200 pt-3">
+                                <label className="block text-xs font-bold text-slate-600 mb-1.5">Search & Add Other Siblings</label>
+                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Search by name..."
+                                        value={searchName}
+                                        onChange={e => setSearchName(e.target.value)}
+                                        className="p-2 border border-slate-200 rounded-lg text-xs outline-none"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Class filter (e.g. 5)"
+                                        value={searchCls}
+                                        onChange={e => setSearchCls(e.target.value)}
+                                        className="p-2 border border-slate-200 rounded-lg text-xs outline-none"
+                                    />
+                                </div>
+
+                                {searchName && (
+                                    <div className="max-h-36 overflow-y-auto border border-amber-200 rounded-lg bg-amber-50/50 divide-y divide-amber-100">
+                                        {availableCandidates.length === 0 ? (
+                                            <div className="p-2 text-center text-xs text-slate-400">No matching students found</div>
+                                        ) : (
+                                            availableCandidates.slice(0, 8).map(cand => (
+                                                <div key={cand.id} className="p-2 flex items-center justify-between text-xs hover:bg-amber-100/50">
+                                                    <div>
+                                                        <span className="font-bold text-slate-800">{cand.name}</span>
+                                                        <span className="text-[10px] text-slate-500 ml-1.5">Class {cand.studentClass} • Adm: {cand.adm || '-'}</span>
+                                                    </div>
+                                                    <button onClick={() => addCandidate(cand)} className="px-2 py-0.5 bg-amber-600 text-white font-bold rounded text-[10px] hover:bg-amber-700">
+                                                        Add
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+                            <button onClick={onClose} className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
+                                Cancel
+                            </button>
+                            <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow transition">
+                                {saving ? 'Saving...' : 'Save Group Setup'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- DASHBOARD OVERVIEW TAB ---
+        const DashboardTab = ({ students, studentGroups, payments, settings, dynamicMonths, CLASSES, academicYear }) => {
+            const stats = useMemo(() => {
+                const totalStudents = students.length;
+                const boys = students.filter(s => s.gender === 'M').length;
+                const girls = students.filter(s => s.gender === 'F').length;
+
+                const yearPayments = payments.filter(p => !academicYear || !p.academicYear || p.academicYear === academicYear);
+                const totalCollected = yearPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+                const classStats = CLASSES.map(cls => {
+                    const clsStudents = students.filter(s => s.studentClass === cls);
+                    const clsBoys = clsStudents.filter(s => s.gender === 'M').length;
+                    const clsGirls = clsStudents.filter(s => s.gender === 'F').length;
+                    const clsCollected = yearPayments.filter(p => clsStudents.some(s => s.id === p.studentId)).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+                    return { cls, count: clsStudents.length, boys: clsBoys, girls: clsGirls, collected: clsCollected };
+                }).filter(r => r.count > 0);
+
+                return { totalStudents, boys, girls, totalCollected, classStats };
+            }, [students, payments, CLASSES, academicYear]);
+
+            return (
+                <div className="space-y-5">
+                    <div className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-6 rounded-2xl shadow-md flex items-center justify-between">
+                        <div>
+                            <h2 className="text-2xl font-black mb-1">Executive Fee Dashboard</h2>
+                            <p className="text-blue-100 text-xs font-medium">Institution collection metrics and student demographic strength</p>
+                        </div>
+                        {academicYear && (
+                            <span className="bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm">
+                                Academic Year: {academicYear}
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
+                            <span className="text-xs font-bold text-slate-400 uppercase">Enrolled Students</span>
+                            <div className="text-3xl font-black text-slate-800 mt-1">{stats.totalStudents}</div>
+                            <div className="text-xs text-slate-500 font-semibold mt-1">Boys: {stats.boys} • Girls: {stats.girls}</div>
+                        </div>
+
+                        <div className="bg-white border border-emerald-200 bg-emerald-50/30 p-4 rounded-xl shadow-sm">
+                            <span className="text-xs font-bold text-emerald-700 uppercase">Total Collected</span>
+                            <div className="text-3xl font-black text-emerald-800 mt-1">{formatCurrency(stats.totalCollected)}</div>
+                            <div className="text-xs text-emerald-600 font-semibold mt-1">Through current session</div>
+                        </div>
+
+                        <div className="bg-white border border-amber-200 bg-amber-50/30 p-4 rounded-xl shadow-sm">
+                            <span className="text-xs font-bold text-amber-700 uppercase">Fee Groups</span>
+                            <div className="text-3xl font-black text-amber-800 mt-1">{studentGroups.length}</div>
+                            <div className="text-xs text-amber-600 font-semibold mt-1">Active sibling concession groups</div>
+                        </div>
+
+                        <div className="bg-white border border-indigo-200 bg-indigo-50/30 p-4 rounded-xl shadow-sm">
+                            <span className="text-xs font-bold text-indigo-700 uppercase">Active Classes</span>
+                            <div className="text-3xl font-black text-indigo-800 mt-1">{stats.classStats.length}</div>
+                            <div className="text-xs text-indigo-600 font-semibold mt-1">Configured divisions</div>
+                        </div>
+                    </div>
+
+                    {/* Class-wise Breakdown Table */}
+                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden p-5">
+                        <h3 className="font-extrabold text-slate-800 text-sm mb-3">Class-wise Strength & Collection</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs text-left border-collapse">
+                                <thead className="bg-slate-100 font-bold text-slate-600 uppercase text-[10px]">
+                                    <tr>
+                                        <th className="p-2.5 border-b">Class</th>
+                                        <th className="p-2.5 border-b text-center">Total Students</th>
+                                        <th className="p-2.5 border-b text-center">Boys</th>
+                                        <th className="p-2.5 border-b text-center">Girls</th>
+                                        <th className="p-2.5 border-b text-right">Fee Collected</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {stats.classStats.map(r => (
+                                        <tr key={r.cls} className="hover:bg-slate-50">
+                                            <td className="p-2.5 font-bold text-slate-800">Class {r.cls}</td>
+                                            <td className="p-2.5 text-center font-bold text-slate-700">{r.count}</td>
+                                            <td className="p-2.5 text-center text-blue-600 font-bold">{r.boys}</td>
+                                            <td className="p-2.5 text-center text-pink-600 font-bold">{r.girls}</td>
+                                            <td className="p-2.5 text-right font-black text-emerald-700">{formatCurrency(r.collected)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- FEE PAYMENT HISTORY TAB ---
+        const FeeHistoryTab = ({ students, payments, dynamicMonths, showAlert }) => {
+            const [historySearch, setHistorySearch] = useState('');
+
+            const historyRows = useMemo(() => {
+                const map = new Map(students.map(s => [s.id, s]));
+                let list = payments.map(p => {
+                    const st = map.get(p.studentId);
+                    return {
+                        id: p.id,
+                        receipt: p.receiptNo || '-',
+                        date: p.paymentDate || '-',
+                        studentName: st ? st.name : (p.studentId || 'Unknown'),
+                        studentClass: st ? st.studentClass : (p.classLabel || '-'),
+                        item: p.description || p.itemKey || 'Monthly Fee',
+                        amount: Number(p.amount || 0),
+                        collectedBy: p.collectedByName || 'Cashier',
+                        timestamp: p.timestamp || 0
+                    };
+                });
+
+                if (historySearch.trim()) {
+                    const q = historySearch.trim().toLowerCase();
+                    list = list.filter(r =>
+                        r.receipt.toLowerCase().includes(q) ||
+                        r.studentName.toLowerCase().includes(q) ||
+                        r.item.toLowerCase().includes(q)
+                    );
+                }
+
+                list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                return list;
+            }, [students, payments, historySearch]);
+
+            return (
+                <div className="space-y-4">
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-base font-extrabold text-slate-800 leading-tight">Payment Audit & Receipt History</h2>
+                            <p className="text-xs text-slate-500 font-medium">All logged transactions recorded in database</p>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Search receipt, student..."
+                            value={historySearch}
+                            onChange={e => setHistorySearch(e.target.value)}
+                            className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none w-full sm:w-64"
+                        />
+                    </div>
+
+                    <div className="table-container border border-slate-200 rounded-xl bg-white shadow-sm">
+                        <table className="w-full text-xs text-left border-collapse">
+                            <thead className="bg-slate-100 font-bold text-slate-600 uppercase text-[10px] sticky top-0">
+                                <tr>
+                                    <th className="p-3 border-b">Date</th>
+                                    <th className="p-3 border-b">Receipt #</th>
+                                    <th className="p-3 border-b">Student</th>
+                                    <th className="p-3 border-b text-center">Class</th>
+                                    <th className="p-3 border-b">Fee Item</th>
+                                    <th className="p-3 border-b text-right">Amount</th>
+                                    <th className="p-3 border-b text-center">Collector</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {historyRows.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="7" className="p-8 text-center text-slate-400 font-semibold">
+                                            No payment records found.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    historyRows.map(row => (
+                                        <tr key={row.id} className="hover:bg-slate-50">
+                                            <td className="p-3 font-semibold text-slate-700">{row.date}</td>
+                                            <td className="p-3 font-mono font-bold text-blue-700">{row.receipt}</td>
+                                            <td className="p-3 font-bold text-slate-800">{row.studentName}</td>
+                                            <td className="p-3 text-center font-bold text-slate-600">{row.studentClass}</td>
+                                            <td className="p-3 text-slate-600">{row.item}</td>
+                                            <td className="p-3 text-right font-black text-emerald-700">{formatCurrency(row.amount)}</td>
+                                            <td className="p-3 text-center text-slate-500 font-medium">{row.collectedBy}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
