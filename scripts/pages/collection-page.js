@@ -3582,6 +3582,18 @@ window.openPaymentReceiptDetailModal = (paymentId, targetCellElement = null) => 
     const collEl = document.getElementById('receipt-view-collector');
     if (collEl) collEl.textContent = collectorName || 'Staff';
 
+    const descWrap = document.getElementById('receipt-view-desc-wrap');
+    const descEl = document.getElementById('receipt-view-desc');
+    if (descWrap && descEl) {
+        if (payment.description) {
+            descEl.textContent = payment.description;
+            descWrap.classList.remove('hidden');
+        } else {
+            descEl.textContent = '';
+            descWrap.classList.add('hidden');
+        }
+    }
+
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 };

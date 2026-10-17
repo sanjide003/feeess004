@@ -413,6 +413,11 @@ export const openFeeEntryEditModal = (options = {}) => {
     const modeInput = document.getElementById('ledger-pay-mode');
     if (modeInput) modeInput.value = paymentModeVal;
 
+    const descInput = document.getElementById('ledger-pay-description');
+    if (descInput) {
+        descInput.value = (isEdit || isBulkEdit) ? (existingPayment?.description || '') : '';
+    }
+
     // Show Modal
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -433,6 +438,8 @@ export const closeFeeEntryEditModal = () => {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+    const descInput = document.getElementById('ledger-pay-description');
+    if (descInput) descInput.value = '';
     activeModalOptions = null;
     isSubmitting = false;
 };
@@ -532,6 +539,7 @@ export const submitFeeEntryPayment = async () => {
 
     const paymentDate = document.getElementById('ledger-pay-date')?.value || new Date().toISOString().split('T')[0];
     const mode = document.getElementById('ledger-pay-mode')?.value || 'Cash';
+    const description = document.getElementById('ledger-pay-description')?.value?.trim() || '';
     const submitBtn = document.getElementById('ledger-pay-confirm-btn');
 
     if (!amount || amount <= 0) {
@@ -596,6 +604,7 @@ export const submitFeeEntryPayment = async () => {
                         receiptNo: receiptNo,
                         paymentDate: paymentDate,
                         paymentMode: mode,
+                        description: description,
                         updatedAt: new Date().toISOString()
                     };
                     batch.set(payRef, updatePayload, { merge: true });
@@ -628,6 +637,7 @@ export const submitFeeEntryPayment = async () => {
                         itemType: canonicalItem.type || bItem.itemType || 'month',
                         paymentMode: mode,
                         paymentDate: paymentDate,
+                        description: description,
                         timestamp: Date.now(),
                         transactionId: sharedTxnId,
                         collectedBy: collectorKey,
@@ -656,6 +666,7 @@ export const submitFeeEntryPayment = async () => {
                 receiptNo: receiptNo,
                 paymentDate: paymentDate,
                 paymentMode: mode,
+                description: description,
                 updatedAt: new Date().toISOString()
             };
             batch.set(payRef, updatePayload, { merge: true });
@@ -728,6 +739,7 @@ export const submitFeeEntryPayment = async () => {
                         itemType: canonicalItem.type || 'month',
                         paymentMode: mode,
                         paymentDate: paymentDate,
+                        description: description,
                         timestamp: Date.now(),
                         transactionId: newTxnId,
                         collectedBy: collectorKey,
@@ -780,6 +792,7 @@ export const submitFeeEntryPayment = async () => {
                     itemType: canonicalItem.type || 'month',
                     paymentMode: mode,
                     paymentDate: paymentDate,
+                    description: description,
                     timestamp: Date.now(),
                     transactionId: newTxnId,
                     collectedBy: collectorKey,
@@ -912,8 +925,8 @@ export const initSharedFeeModal = () => {
         confirmBtn.onclick = submitFeeEntryPayment;
     }
 
-    // Submit on Enter key in amount/receipt input
-    ['ledger-pay-amount', 'ledger-pay-receipt'].forEach(id => {
+    // Submit on Enter key in amount/receipt/description input
+    ['ledger-pay-amount', 'ledger-pay-receipt', 'ledger-pay-description'].forEach(id => {
         document.getElementById(id)?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();

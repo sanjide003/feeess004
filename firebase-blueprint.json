@@ -95,6 +95,7 @@
         "feeItems": { "type": "array" },
         "collectorName": { "type": "string" },
         "collectorEmail": { "type": "string" },
+        "description": { "type": "string" },
         "remarks": { "type": "string" },
         "timestamp": { "type": "number" }
       },

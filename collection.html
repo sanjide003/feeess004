@@ -927,6 +927,11 @@
                     </div>
                 </div>
 
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1 text-[11px]">Description (Optional)</label>
+                    <input type="text" id="ledger-pay-description" class="form-input !mb-0 !py-2 !px-3 text-xs font-medium !rounded-xl" placeholder="e.g. UPI / Cheque Ref, discount or payment note..." autocomplete="off">
+                </div>
+
                 <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/80">
                     <button type="button" id="ledger-pay-cancel-btn" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs transition border border-slate-200 shadow-2xs">
                         Cancel
@@ -994,6 +999,10 @@
                     <div class="col-span-2 mt-2 pt-2 border-t border-slate-200 text-[11px] text-slate-500 flex justify-between">
                         <span>Collected By:</span>
                         <b id="receipt-view-collector" class="text-slate-700 font-bold">--</b>
+                    </div>
+                    <div id="receipt-view-desc-wrap" class="col-span-2 mt-1.5 pt-1.5 border-t border-slate-200 text-[11px] text-slate-500 hidden">
+                        <span class="block text-[10px] font-bold text-slate-400 uppercase">Description:</span>
+                        <div id="receipt-view-desc" class="text-slate-700 font-medium italic mt-0.5 whitespace-pre-wrap"></div>
                     </div>
                 </div>
             </div>
