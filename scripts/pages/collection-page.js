@@ -213,7 +213,8 @@ const syncMasterLedgerState = () => {
             payments: Array.isArray(allPayments) ? allPayments : [],
             classes: Array.isArray(classes) ? classes : [],
             defaultFee: typeof defaultFee === 'number' ? defaultFee : 200,
-            academicYear: currentWorkingAcademicYear || ''
+            academicYear: currentWorkingAcademicYear || '',
+            academicYearSettings: Array.isArray(academicYearSettings) ? academicYearSettings : []
         });
     } catch (err) {
         console.warn('Sync master ledger error:', err);
@@ -476,11 +477,24 @@ const getAcademicMonthSequence = (yearLabel = '') => {
 };
 const getMonthIndexFromName = (name = '') => {
     const normalized = normalizeFeeItemName(name || '').toLowerCase();
-    const matchedMonth = MONTH_SEQUENCE.find((month) => normalized.startsWith(month));
+    const matchedMonth = MONTH_SEQUENCE.find((month) => normalized.startsWith(month) || (normalized.length >= 3 && month.startsWith(normalized.slice(0, 3))));
     return matchedMonth ? MONTH_SEQUENCE.indexOf(matchedMonth) : -1;
 };
-const sortFeeItemsForDisplay = (items = []) => {
-    const selectedYearMonthOrder = getAcademicMonthSequence(selectedFeeAcademicYear || currentWorkingAcademicYear);
+const populateFeeStatusAcademicYears = () => {
+    const feeStatusYearSelect = document.getElementById('filter-academic-year');
+    if (!feeStatusYearSelect) return;
+    const currentVal = feeStatusYearSelect.value;
+    const years = (academicYearSettings || []).filter(y => y && y.label && y.status !== 'archived');
+    const optionsHtml = years.map(y => `<option value="${escapeHtml(y.label)}">${escapeHtml(y.label)}${y.label === currentWorkingAcademicYear ? ' (Active)' : ''}</option>`).join('');
+    feeStatusYearSelect.innerHTML = `<option value="">Current Year (${escapeHtml(currentWorkingAcademicYear || 'Active')})</option>` + optionsHtml;
+    if (currentVal && years.some(y => y.label === currentVal)) {
+        feeStatusYearSelect.value = currentVal;
+    }
+};
+
+const sortFeeItemsForDisplay = (items = [], customYear = null) => {
+    const effectiveYear = customYear || document.getElementById('filter-academic-year')?.value || selectedFeeAcademicYear || currentWorkingAcademicYear;
+    const selectedYearMonthOrder = getAcademicMonthSequence(effectiveYear);
     const monthly = items.filter((item) => (item.type || 'month') === 'month')
         .sort((a, b) => {
             const aLabel = normalizeFeeItemName(a.name || '');
@@ -515,16 +529,17 @@ const sortMonthlyItemsByAcademicYear = (items = [], academicYear = '') => {
 };
 
 const buildFeeStatusMatrix = () => {
-    const fCls = document.getElementById('filter-class').value;
-    const fGen = document.getElementById('filter-gender').value;
+    const fCls = document.getElementById('filter-class')?.value || 'all';
+    const fGen = document.getElementById('filter-gender')?.value || 'all';
+    const fYear = document.getElementById('filter-academic-year')?.value || currentWorkingAcademicYear;
     const dutyFilteredStudents = (!isCurrentAdmin && selectedDutyClasses.length)
         ? students.filter((student) => selectedDutyClasses.includes(student.class))
         : students;
     const list = dutyFilteredStudents.filter(s => (fCls === 'all' || s.class === fCls) && (fGen === 'all' || s.gender === fGen));
     const items = feeItems.filter((i) => {
         if (i.isVisible === false) return false;
-        if (!currentWorkingAcademicYear) return true;
-        return (i.academicYear || currentWorkingAcademicYear) === currentWorkingAcademicYear;
+        if (!fYear) return true;
+        return (i.academicYear || fYear) === fYear;
     });
     return { list, items };
 };
@@ -1725,6 +1740,7 @@ const populateClassDropdowns = () => {
     }
 
     renderMyClassTab();
+    populateFeeStatusAcademicYears();
 };
 
 const updateStudentInputClearButton = () => {
@@ -1780,6 +1796,10 @@ document.getElementById('entry-gender').addEventListener('change', (e) => {
 let feeStatusRowLimit = 25;
 let feeStatusPageOffset = 0;
 
+document.getElementById('filter-academic-year')?.addEventListener('change', () => {
+    feeStatusPageOffset = 0;
+    renderFeeTable();
+});
 document.getElementById('filter-class').addEventListener('change', () => {
     feeStatusPageOffset = 0;
     renderFeeTable();
@@ -3211,7 +3231,7 @@ const renderFeeTable = () => {
             </td>`;
 
         items.forEach(i => {
-            const p = allPayments.find(pay => pay.studentId === s.id && isFeeItemMatch(pay.itemKey, i));
+            const p = allPayments.find(pay => pay.studentId === s.id && isFeeItemMatch(pay.itemKey, i) && (!pay.academicYear || !i.academicYear || pay.academicYear === i.academicYear));
             const selKey = `${s.id}__${i.key}`;
             const isSelected = selectedFeeStatusCells.has(selKey);
             const selRing = isSelected ? 'ring-2 ring-blue-500 ring-inset bg-blue-50/70' : '';
@@ -4661,6 +4681,7 @@ onAuthStateChanged(auth, async (user) => {
         currentWorkingAcademicYear = payload.currentYear || currentWorkingAcademicYear || '';
         applyCurrentYearStudentScope();
         populateClassDropdowns();
+        populateFeeStatusAcademicYears();
         setupBulkUploadUI();
         updateDashboardMetrics();
         syncMasterLedgerState();

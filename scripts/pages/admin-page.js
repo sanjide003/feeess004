@@ -116,7 +116,49 @@ const syncEnrollmentRecord = async (studentId = '', studentRecord = {}) => {
     await setDoc(getEnrollmentRef(academicYear, studentId), buildEnrollmentPayload(studentId, { ...studentRecord, academicYear }), { merge: true });
 };
 const getAdminAuthRef = () => doc(db, `${BASE_PATH}/settings`, ADMIN_AUTH_DOC_ID);
+const getConfigRef = () => doc(db, `${BASE_PATH}/settings`, 'config');
 const getSessionRegistryRef = () => doc(db, `${BASE_PATH}/settings`, 'sessionRegistry');
+
+const ensureFeeItemsForAcademicYears = async (yearsList = academicYears) => {
+    try {
+        const confRef = getConfigRef();
+        const configSnap = await getDoc(confRef);
+        const d = configSnap.exists() ? configSnap.data() : {};
+        let existingItems = Array.isArray(d.feeItems) ? [...d.feeItems] : [];
+        let isUpdated = false;
+
+        const targetYears = Array.isArray(yearsList) && yearsList.length
+            ? yearsList
+            : (Array.isArray(academicYears) && academicYears.length ? academicYears : [getActiveAcademicYearRecord()].filter(Boolean));
+
+        targetYears.forEach((yearRecord) => {
+            if (!yearRecord || !yearRecord.label || yearRecord.status === 'archived') return;
+            const yearLabel = yearRecord.label;
+            const suffix = yearLabel.replace(/[^0-9]/g, '').substring(2);
+            const months = getAcademicMonthSequence(yearRecord).map((monthIndex) => MONTH_LABELS[monthIndex]);
+
+            months.forEach((m) => {
+                const key = `${m.toLowerCase().substring(0, 3)}-${suffix}`;
+                if (!existingItems.find((i) => i.key === key)) {
+                    existingItems.push({
+                        key: key,
+                        name: `${m} (${yearLabel})`,
+                        type: 'month',
+                        isVisible: true,
+                        academicYear: yearLabel
+                    });
+                    isUpdated = true;
+                }
+            });
+        });
+
+        if (isUpdated) {
+            await setDoc(confRef, { feeItems: existingItems, appName: d.appName || 'Fee Tracker Pro', defaultFee: d.defaultFee || 200 }, { merge: true });
+        }
+    } catch (e) {
+        console.warn('Failed to ensure academic year fee items:', e);
+    }
+};
 const getLocalDeviceId = () => {
     const key = 'fee_admin_device_id';
     const existing = localStorage.getItem(key);
@@ -9787,6 +9829,7 @@ document.getElementById('add-academic-year-btn').addEventListener('click', async
         currentAcademicYear = label;
     }
     await persistAcademicYears();
+    await ensureFeeItemsForAcademicYears(academicYears);
     await logAuditEvent({ category: 'security', action: 'academic-year.create', entityType: 'academicYear', entityId: label, message: `Academic year created: ${label}.` });
     
     // Set next consecutive year as suggestion in input
@@ -9983,6 +10026,7 @@ document.getElementById('academic-year-edit-save')?.addEventListener('click', as
         }
     }
     await persistAcademicYears();
+    await ensureFeeItemsForAcademicYears(academicYears);
     await logAuditEvent({ category: 'security', action: 'academic-year.update', entityType: 'academicYear', entityId: label, message: `Academic year updated: ${label}.` });
     closeAcademicYearEditPopup();
     showToast(`Academic year "${label}" updated.`, 'success');
@@ -10242,24 +10286,36 @@ onAuthStateChanged(auth, async (user) => {
         onSnapshot(configRef, (docSnap) => {
             const d = docSnap.exists() ? docSnap.data() : {};
 
-            // --- AUTO GENERATE 12 MONTHS ---
-            let existingItems = d.feeItems || [];
-            const activeYearLabel = getActiveAcademicYearLabel();
-            const activeYearRecord = getActiveAcademicYearRecord();
-            const suffix = activeYearLabel.replace(/[^0-9]/g, '').substring(2);
-            const months = getAcademicMonthSequence(activeYearRecord).map((monthIndex) => MONTH_LABELS[monthIndex]);
-
+            // --- AUTO GENERATE 12 MONTHS FOR ACADEMIC YEARS ---
+            let existingItems = Array.isArray(d.feeItems) ? [...d.feeItems] : [];
             let isUpdated = false;
-            months.forEach(m => {
-                const key = `${m.toLowerCase().substring(0,3)}-${suffix}`;
-                if (!existingItems.find(i => i.key === key)) {
-                    existingItems.push({ key: key, name: `${m} (${activeYearLabel})`, type: 'month', isVisible: true, academicYear: activeYearLabel });
-                    isUpdated = true;
-                }
+            const targetYears = (Array.isArray(academicYears) && academicYears.length)
+                ? academicYears
+                : (getActiveAcademicYearRecord() ? [getActiveAcademicYearRecord()] : []);
+
+            targetYears.forEach((yearRecord) => {
+                if (!yearRecord || !yearRecord.label || yearRecord.status === 'archived') return;
+                const yearLabel = yearRecord.label;
+                const suffix = yearLabel.replace(/[^0-9]/g, '').substring(2);
+                const months = getAcademicMonthSequence(yearRecord).map((monthIndex) => MONTH_LABELS[monthIndex]);
+
+                months.forEach((m) => {
+                    const key = `${m.toLowerCase().substring(0, 3)}-${suffix}`;
+                    if (!existingItems.find((i) => i.key === key)) {
+                        existingItems.push({
+                            key: key,
+                            name: `${m} (${yearLabel})`,
+                            type: 'month',
+                            isVisible: true,
+                            academicYear: yearLabel
+                        });
+                        isUpdated = true;
+                    }
+                });
             });
 
             if (isUpdated) {
-                setDoc(configRef, { feeItems: existingItems, appName: d.appName || 'Fee Tracker Pro', defaultFee: d.defaultFee || 200 }, {merge: true});
+                setDoc(configRef, { feeItems: existingItems, appName: d.appName || 'Fee Tracker Pro', defaultFee: d.defaultFee || 200 }, { merge: true });
             }
 
             document.getElementById('app-name-header').textContent = d.appName || 'Admin Dashboard';

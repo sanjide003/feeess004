@@ -24,6 +24,7 @@ let isInitialized = false;
 const filters = {
     search: '',
     classFilter: '',
+    academicYear: '',
     classOrder: 'DESC', // 'DESC' (+2 to 1) or 'ASC' (1 to +2)
     studentSort: 'DEFAULT', // 'DEFAULT', 'ADM', 'A-Z', 'Z-A'
     genderMode: 'MIXED', // 'MIXED', 'CLASS_BOYS_FIRST', 'GLOBAL_BOYS_FIRST'
@@ -83,7 +84,23 @@ export const clearLedgerBulkSelection = () => {
     updateLedgerBulkActionButtons();
 };
 
-const STANDARD_ACADEMIC_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+const MONTH_SHORT_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+let ledgerAcademicYearSettings = [];
+let ledgerAcademicMonths = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
+
+const resolveLedgerMonths = (yearLabel = ledgerAcademicYear, yearSettings = ledgerAcademicYearSettings) => {
+    const matched = Array.isArray(yearSettings) ? yearSettings.find(y => y?.label === yearLabel) : null;
+    const startMonth = Number.isInteger(Number(matched?.startMonth)) ? Number(matched.startMonth) : 5; // default June (5)
+    const endMonth = Number.isInteger(Number(matched?.endMonth)) ? Number(matched.endMonth) : 4; // default May (4)
+    const list = [];
+    let cur = startMonth;
+    for (let count = 0; count < 24; count++) {
+        list.push(MONTH_SHORT_NAMES[cur]);
+        if (cur === endMonth) break;
+        cur = (cur + 1) % 12;
+    }
+    return list.length ? list : ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
+};
 
 // Class ranking helper
 const getClassRank = (cls = '') => {
@@ -98,10 +115,27 @@ const getClassRank = (cls = '') => {
 };
 
 // Match payment itemKey with month
-const isMonthMatch = (itemKey = '', month = '') => {
+const isMonthMatch = (itemKey = '', month = '', targetYear = ledgerAcademicYear) => {
     const key = String(itemKey || '').trim().toLowerCase();
-    const m = String(month || '').trim().toLowerCase();
-    return key === m || key.includes(m) || key === `month_${m}`;
+    const m = String(month || '').trim().toLowerCase().slice(0, 3);
+    if (!key || !m) return false;
+
+    const keyYearMatch = key.match(/^([a-z]{3})-(\d{4})$/);
+    if (keyYearMatch) {
+        const itemMonth = keyYearMatch[1];
+        const itemYearSuffix = keyYearMatch[2];
+        if (itemMonth !== m) return false;
+        if (targetYear) {
+            const curYearClean = String(targetYear).replace(/[^0-9]/g, '');
+            const curYearSuffix = curYearClean.length >= 4 ? curYearClean.substring(2, 6) : curYearClean;
+            if (curYearSuffix && itemYearSuffix !== curYearSuffix) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    return key === m || key.startsWith(m) || key.includes(`-${m}`) || key.includes(`_${m}`);
 };
 
 // Next receipt number helper
@@ -140,9 +174,10 @@ const buildLedgerUnits = () => {
 
             // Calculate month payments for group
             const monthStatus = {};
-            STANDARD_ACADEMIC_MONTHS.forEach(month => {
+            ledgerAcademicMonths.forEach(month => {
                 // Check if any payment was made for this group or its members for this month
                 const matchedPayment = ledgerPayments.find(p => {
+                    if (ledgerAcademicYear && p.academicYear && p.academicYear !== ledgerAcademicYear) return false;
                     const isGroupPay = p.billingGroupId === group.id && isMonthMatch(p.itemKey, month);
                     const isMemberPay = memberIds.includes(p.studentId) && isMonthMatch(p.itemKey, month);
                     return isGroupPay || isMemberPay;
@@ -192,8 +227,11 @@ const buildLedgerUnits = () => {
             const sClass = s.class || s.studentClass || '-';
 
             const monthStatus = {};
-            STANDARD_ACADEMIC_MONTHS.forEach(month => {
-                const matchedPayment = ledgerPayments.find(p => p.studentId === s.id && isMonthMatch(p.itemKey, month));
+            ledgerAcademicMonths.forEach(month => {
+                const matchedPayment = ledgerPayments.find(p => {
+                    if (ledgerAcademicYear && p.academicYear && p.academicYear !== ledgerAcademicYear) return false;
+                    return p.studentId === s.id && isMonthMatch(p.itemKey, month);
+                });
 
                 if (matchedPayment) {
                     monthStatus[month] = {
@@ -314,6 +352,19 @@ const getFilteredUnits = () => {
 
 // Render toolbar filter controls
 const renderFilterControls = () => {
+    // Populate Academic Year Filter Dropdown
+    const yearSelect = document.getElementById('ledger-academic-year-select');
+    if (yearSelect) {
+        const years = Array.isArray(ledgerAcademicYearSettings) ? ledgerAcademicYearSettings.filter(y => y && y.label && y.status !== 'archived') : [];
+        let opts = `<option value="">Year: Current (${escapeHtml(ledgerAcademicYear || 'Active')})</option>`;
+        years.forEach(y => {
+            const isSelected = filters.academicYear === y.label;
+            opts += `<option value="${escapeHtml(y.label)}" ${isSelected ? 'selected' : ''}>Year: ${escapeHtml(y.label)}</option>`;
+        });
+        yearSelect.innerHTML = opts;
+        if (filters.academicYear) yearSelect.value = filters.academicYear;
+    }
+
     // Populate Class Filter Dropdown
     const classFilterSelect = document.getElementById('ledger-class-filter');
     if (classFilterSelect) {
@@ -382,7 +433,7 @@ const renderLedgerTable = () => {
                     <th class="px-3 py-3.5 text-center border-r border-slate-200 min-w-[130px] text-amber-900 bg-amber-50/50">GROUP SETUP</th>
                     <th class="px-2.5 py-3.5 text-center border-r border-slate-200 min-w-[110px] text-emerald-900 bg-emerald-50/50">EXTRA FEES</th>
                     <th class="px-2 py-3.5 text-center border-r border-slate-200 w-16 text-rose-900 bg-rose-50/40">ARREARS</th>
-                    ${STANDARD_ACADEMIC_MONTHS.map(m => `
+                    ${ledgerAcademicMonths.map(m => `
                         <th class="px-2 py-2.5 text-center border-r border-slate-200 min-w-[98px]">
                             <div class="flex flex-col items-center gap-1">
                                 <span>${m.toUpperCase()}</span>
@@ -398,7 +449,7 @@ const renderLedgerTable = () => {
     visibleList.forEach((unit, idx) => {
         const serialNo = ledgerPageOffset + idx + 1;
         const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40';
-        const isRowAllSelected = STANDARD_ACADEMIC_MONTHS.every(m => selectedLedgerCells.has(`${unit.id}__${m}`));
+        const isRowAllSelected = ledgerAcademicMonths.every(m => selectedLedgerCells.has(`${unit.id}__${m}`));
 
         // Student Names markup with numbering and gender badges
         const studentNamesHtml = unit.students.map((s, sIdx) => {
@@ -486,7 +537,7 @@ const renderLedgerTable = () => {
                 </td>
 
                 <!-- 12 ACADEMIC MONTHS -->
-                ${STANDARD_ACADEMIC_MONTHS.map(month => {
+                ${ledgerAcademicMonths.map(month => {
                     const st = unit.monthStatus[month] || { isPaid: false, due: unit.fee };
                     const selKey = `${unit.id}__${month}`;
                     const isSelected = selectedLedgerCells.has(selKey);
@@ -921,7 +972,7 @@ const exportLedgerPdf = () => {
 
     // Table Columns
     const head = [
-        ['NO', 'CLASS', 'STUDENT NAME', 'GUARDIAN & PHONE', 'GROUP', ...STANDARD_ACADEMIC_MONTHS.map(m => m.toUpperCase()), 'STATUS']
+        ['NO', 'CLASS', 'STUDENT NAME', 'GUARDIAN & PHONE', 'GROUP', ...ledgerAcademicMonths.map(m => m.toUpperCase()), 'STATUS']
     ];
 
     const body = list.map((unit, idx) => {
@@ -930,7 +981,7 @@ const exportLedgerPdf = () => {
         const guardianStr = `${unit.guardian}\n${unit.phone || '--'}`;
         const groupStr = unit.isGroup ? `Group (${unit.students.length})\n₹${unit.fee}` : `₹${unit.fee}`;
 
-        const monthValues = STANDARD_ACADEMIC_MONTHS.map(m => {
+        const monthValues = ledgerAcademicMonths.map(m => {
             const st = unit.monthStatus[m];
             if (st?.isPaid) {
                 const rcpt = st.receipt && String(st.receipt).trim() !== '' && st.receipt !== 'Paid'
@@ -1000,6 +1051,7 @@ const exportLedgerPdf = () => {
 const resetFilters = () => {
     filters.search = '';
     filters.classFilter = '';
+    filters.academicYear = '';
     filters.classOrder = 'DESC';
     filters.studentSort = 'DEFAULT';
     filters.genderMode = 'MIXED';
@@ -1011,6 +1063,9 @@ const resetFilters = () => {
 
     const classFilter = document.getElementById('ledger-class-filter');
     if (classFilter) classFilter.value = '';
+
+    const yearSelect = document.getElementById('ledger-academic-year-select');
+    if (yearSelect) yearSelect.value = '';
 
     const classOrder = document.getElementById('ledger-class-order');
     if (classOrder) classOrder.value = 'DESC';
@@ -1024,18 +1079,22 @@ const resetFilters = () => {
     const statusFilter = document.getElementById('ledger-status-filter');
     if (statusFilter) statusFilter.value = 'ALL';
 
+    ledgerAcademicMonths = resolveLedgerMonths(ledgerAcademicYear, ledgerAcademicYearSettings);
     clearLedgerBulkSelection();
     renderLedgerTable();
 };
 
 // Public update hook to sync with collection-page.js data
-export const updateMasterLedgerData = ({ students, groups, payments, classes, defaultFee, academicYear }) => {
+export const updateMasterLedgerData = ({ students, groups, payments, classes, defaultFee, academicYear, academicYearSettings }) => {
     if (Array.isArray(students)) ledgerStudents = students;
     if (Array.isArray(groups)) ledgerGroups = groups;
     if (Array.isArray(payments)) ledgerPayments = payments;
     if (Array.isArray(classes)) ledgerClasses = classes;
     if (typeof defaultFee === 'number') ledgerDefaultFee = defaultFee;
-    if (academicYear) ledgerAcademicYear = academicYear;
+    if (academicYear && !filters.academicYear) ledgerAcademicYear = academicYear;
+    if (Array.isArray(academicYearSettings)) ledgerAcademicYearSettings = academicYearSettings;
+
+    ledgerAcademicMonths = resolveLedgerMonths(ledgerAcademicYear, ledgerAcademicYearSettings);
 
     renderFilterControls();
     renderLedgerTable();
@@ -1047,6 +1106,22 @@ export const initMasterLedgerModule = () => {
     isInitialized = true;
 
     appLog('info', 'collection.masterLedger', 'Master Fee Ledger module initialized');
+
+    // Academic Year Select Listener
+    const yearSelect = document.getElementById('ledger-academic-year-select');
+    if (yearSelect) {
+        yearSelect.addEventListener('change', (e) => {
+            const selectedVal = e.target.value;
+            filters.academicYear = selectedVal;
+            if (selectedVal) {
+                ledgerAcademicYear = selectedVal;
+            }
+            ledgerAcademicMonths = resolveLedgerMonths(ledgerAcademicYear, ledgerAcademicYearSettings);
+            ledgerPageOffset = 0;
+            renderLedgerTable();
+            window.dispatchEvent(new CustomEvent('ledgerAcademicYearChanged', { detail: { academicYear: ledgerAcademicYear } }));
+        });
+    }
 
     // 0. Rows Limit Listener
     const rowLimitSelect = document.getElementById('ledger-row-limit');
